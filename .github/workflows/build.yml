@@ -35,6 +35,7 @@ jobs:
     - name: Setup dependencies
       run: |
         go get -d ./...
+        go get github.com/qh-project/qh@v0.0.0
         go mod download
         
     - name: Setup MSVC
@@ -110,7 +111,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential
+        sudo apt-get install -y build-essential liblua5.4-dev lua5.4
         
     - name: Generate Lua mappings
       run: |
@@ -122,6 +123,11 @@ jobs:
         echo "Building qotp_crypto.so..."
         CGO_ENABLED=1 go build -buildmode=c-shared -o qotp_crypto.so qotp_export.go
         
+    - name: Build C Lua module
+      run: |
+        echo "Building qotp_decrypt.so..."
+        gcc -shared -fPIC -O2 qotp_decrypt.c -o qotp_decrypt.so -I/usr/include/lua5.4 -llua5.4
+        
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -129,7 +135,7 @@ jobs:
         path: |
           qotp_dissector.lua
           qotp_crypto.so
-          qotp_decrypt.c
+          qotp_decrypt.so
         retention-days: 90
         
     - name: Create release artifacts
