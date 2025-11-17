@@ -35,7 +35,7 @@ jobs:
     - name: Setup dependencies
       run: |
         go get -d ./...
-        go get github.com/qh-project/qh@v0.0.0
+        go mod tidy
         go mod download
         
     - name: Setup MSVC
@@ -46,11 +46,6 @@ jobs:
         vcpkg install lua:x64-windows
         echo "LUA_DIR=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
       
-    - name: Generate Lua mappings
-      run: |
-        Write-Host "Generating Lua mappings from Go types..."
-        go run generate_mappings.go qotp_dissector.lua
-        
     - name: Build Go shared library
       run: |
         Write-Host "Building qotp_crypto.dll..."
