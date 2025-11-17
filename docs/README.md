@@ -21,41 +21,14 @@ Complete guide for installing and using the QOTP Wireshark plugin to decrypt and
    - `qotp_crypto.dll`
    - `qotp_decrypt.dll`
 
-3. Copy files to the correct locations:
-
-   **DLL files** → Wireshark installation directory:
+3. Copy files to the plugin location:
    ```
-   C:\Program Files\Wireshark\qotp_crypto.dll
-   C:\Program Files\Wireshark\qotp_decrypt.dll
-   ```
-   
-   **Lua dissector** → User plugins directory:
-   ```
-   %APPDATA%\Roaming\Wireshark\plugins\4.6\qotp_dissector.lua
+   %APPDATA%\Roaming\Wireshark\plugins\4.6\
    ```
    
    > **Tip**: Press `Win+R`, type `%APPDATA%\Roaming\Wireshark\plugins` and press Enter to open the folder quickly
 
 4. Restart Wireshark
-
-#### Option 2: Build from Source
-
-See [README.md](README.md) for build instructions.
-
-### Linux
-
-1. Download the Linux release tarball
-2. Extract and copy files:
-   ```bash
-   # Copy shared libraries to Wireshark plugins directory
-   mkdir -p ~/.local/lib/wireshark/plugins/4.6
-   cp qotp_crypto.so qotp_decrypt.so ~/.local/lib/wireshark/plugins/4.6/
-   
-   # Copy Lua dissector
-   cp qotp_dissector.lua ~/.local/lib/wireshark/plugins/4.6/
-   ```
-
-3. Restart Wireshark
 
 ### Verify Installation
 
@@ -69,28 +42,38 @@ To decrypt QOTP traffic, you need a keylog file containing the shared secrets fo
 
 ### Enabling Keylog in QH Server
 
-The QH server supports an optional `-keylog` flag to enable key logging:
+The QH server's `Listen()` method accepts an optional keylog writer. Pass `nil` to disable keylogging:
 
-```bash
-# Start server WITHOUT keylog (default - encrypted traffic)
-go run ./examples/server/
+```go
+// WITHOUT keylog (encrypted traffic)
+if err := srv.Listen(addr, nil, seed); err != nil {
+    // ...
+}
 
-# Start server WITH keylog (for Wireshark debugging)
-go run ./examples/server/ -keylog
+// WITH keylog (for Wireshark debugging)
+keyLogFile, err := os.OpenFile("qotp_keylog.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+if err != nil {
+    log.Fatal(err)
+}
+defer keyLogFile.Close()
+
+if err := srv.Listen(addr, keyLogFile, seed); err != nil {
+    // ...
+}
 ```
 
-When enabled, the server creates `qotp_keylog.log` with entries like:
+When enabled with a file writer, the server creates `qotp_keylog.log` with entries like:
 
 ```
-CLIENT_HANDSHAKE_TRAFFIC_SECRET 0000000000000001 a1b2c3d4e5f6...
-CLIENT_HANDSHAKE_TRAFFIC_SECRET 0000000000000002 f1e2d3c4b5a6...
+QOTP_SHARED_SECRET 0000000000000001 a1b2c3d4e5f6...
+QOTP_SHARED_SECRET 0000000000000002 f1e2d3c4b5a6...
 ```
 
 ### Keylog File Format
 
 Each line contains:
 ```
-CLIENT_HANDSHAKE_TRAFFIC_SECRET <CONNECTION_ID_HEX> <SHARED_SECRET_HEX>
+QOTP_SHARED_SECRET <CONNECTION_ID_HEX> <SHARED_SECRET_HEX>
 ```
 
 - **CONNECTION_ID**: 16-character hex string (8 bytes, zero-padded)
@@ -98,8 +81,8 @@ CLIENT_HANDSHAKE_TRAFFIC_SECRET <CONNECTION_ID_HEX> <SHARED_SECRET_HEX>
 
 Example:
 ```
-CLIENT_HANDSHAKE_TRAFFIC_SECRET 00000000a4f8b23c 8f3a2d1c9b4e5f6a7d8c9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
-CLIENT_HANDSHAKE_TRAFFIC_SECRET 00000000b5e9c34d 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
+QOTP_SHARED_SECRET 00000000a4f8b23c 8f3a2d1c9b4e5f6a7d8c9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
+QOTP_SHARED_SECRET 00000000b5e9c34d 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b
 ```
 
 ### Security Warning
@@ -107,7 +90,8 @@ CLIENT_HANDSHAKE_TRAFFIC_SECRET 00000000b5e9c34d 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6
 ⚠️ **NEVER enable keylog in production!**
 
 - Keylog files contain the shared secrets needed to decrypt all traffic
-- Only use `-keylog` flag during development and debugging
+- Pass `nil` to `Listen()` in production to disable keylogging
+- Only enable keylog writer during development and debugging
 - Protect keylog files with appropriate file permissions
 - Delete keylog files when debugging is complete
 
@@ -122,13 +106,6 @@ CLIENT_HANDSHAKE_TRAFFIC_SECRET 00000000b5e9c34d 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6
 5. Click the **Browse** button next to "Keylog file"
 6. Select your `qotp_keylog.log` file
 7. Click **OK**
-
-### Capture Filter (Optional)
-
-To capture only QOTP traffic:
-```
-udp port 8090
-```
 
 ### Display Filter
 
@@ -224,18 +201,13 @@ To export decrypted packet data:
 
 **Check installation paths:**
 ```powershell
-# Windows - Check these files exist:
-dir "C:\Program Files\Wireshark\qotp_*.dll"
 dir "%APPDATA%\Roaming\Wireshark\plugins\4.6\qotp_dissector.lua"
+dir "%APPDATA%\Roaming\Wireshark\plugins\4.6\qotp_*.dll"
 ```
 
 **Check Wireshark plugins:**
 - Help → About Wireshark → Plugins
 - Look for `qotp_dissector.lua`
-
-**Check console for errors:**
-- Help → About Wireshark → Console
-- Look for "qotp" related errors
 
 ### Packets Not Decrypting
 
@@ -285,80 +257,35 @@ For large captures:
 - Disable decryption temporarily (remove keylog file path)
 - Split large captures into smaller files
 
-## Advanced Usage
-
-### Custom Port
-
-To dissect QOTP on a different port:
-
-1. Right-click a UDP packet on your custom port
-2. Select **Decode As...**
-3. Change "Current" to **QOTP**
-4. Click OK
-
-### Scripting
-
-Access dissected fields in tshark:
-
-```bash
-# Extract all GET requests
-tshark -r capture.pcap -Y "qh.method == GET" -T fields -e qh.path
-
-# Count packets by QH status code
-tshark -r capture.pcap -Y "qh" -T fields -e qh.status | sort | uniq -c
-
-# Export decrypted QH bodies
-tshark -r capture.pcap -Y "qh.body" -T fields -e qh.body
-```
-
-### Keylog from Client
-
-To capture client-side traffic, modify the QH client to enable keylogging:
-
-```go
-// In your client code
-keyLogFile, err := os.OpenFile("qotp_client_keylog.log", 
-    os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-if err != nil {
-    log.Fatal(err)
-}
-defer keyLogFile.Close()
-
-// Pass keyLogFile to your client initialization
-```
-
 ## Example Workflow
 
 ### Complete Debugging Session
 
-1. **Start server with keylog:**
+1. **Start Wireshark capture:**
+   - Start capture
+  
+2. **Start server with keylog:**
    ```bash
    cd qh/examples/server
-   go run . -keylog
+   go run .
    ```
    Output: `QOTP keylog enabled (file: qotp_keylog.log)`
 
-2. **Start Wireshark capture:**
-   - Capture filter: `udp port 8090`
-   - Start capture
+3. **Load keylog file:**
+   - Edit → Preferences → Protocols → QOTP
+   - Browse to `qh/examples/server/qotp_keylog.log`
+   - Click OK
 
-3. **Run client to generate traffic:**
+4. **Run client to generate traffic:**
    ```bash
    cd qh/examples/client
    go run .
    ```
 
-4. **Stop capture in Wireshark**
-
-5. **Load keylog file:**
-   - Edit → Preferences → Protocols → QOTP
-   - Browse to `qh/examples/server/qotp_keylog.log`
-   - Click OK
+5. **Stop capture in Wireshark**
 
 6. **Analyze decrypted traffic:**
-   - Apply filter: `qh`
-   - View decrypted HTTP-like requests and responses
-   - Follow streams to see full conversations
+   - View decrypted QOTP packets
 
 7. **Clean up:**
    ```bash
