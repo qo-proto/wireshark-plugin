@@ -20,6 +20,12 @@ jobs:
       with:
         repository: tbocek/qotp
         path: qotp
+        
+    - name: Checkout qh dependency
+      uses: actions/checkout@v4
+      with:
+        repository: qh-project/qh
+        path: qh
       
     - name: Setup Go
       uses: actions/setup-go@v5
@@ -28,6 +34,7 @@ jobs:
         
     - name: Verify Go modules
       run: |
+        go mod tidy
         go mod download
         go mod verify
         
@@ -113,6 +120,7 @@ jobs:
         
     - name: Verify Go modules
       run: |
+        go mod tidy
         go mod download
         go mod verify
         
