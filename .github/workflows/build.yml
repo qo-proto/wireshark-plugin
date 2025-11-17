@@ -36,15 +36,23 @@ jobs:
       
     - name: Setup Lua headers
       run: |
-        # Download Lua 5.4.6 headers and lib for Windows
-        $luaUrl = "https://github.com/lua/lua/archive/refs/tags/v5.4.6.zip"
-        Invoke-WebRequest -Uri $luaUrl -OutFile lua.zip
-        Expand-Archive lua.zip -DestinationPath .
+        # Download Lua 5.4.6 from LuaBinaries
+        New-Item -ItemType Directory -Path lua-install -Force
         
-        # For the actual Lua library, we'll use a prebuilt one
-        $luaBinUrl = "https://sourceforge.net/projects/luabinaries/files/5.4.6/Windows%20Libraries/Dynamic/lua-5.4.6_Win64_dllw6_lib.zip/download"
-        Invoke-WebRequest -Uri $luaBinUrl -OutFile lua-bin.zip -UserAgent "Mozilla/5.0"
-        Expand-Archive lua-bin.zip -DestinationPath lua-bin
+        # Download include files
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/luabinaries/files/5.4.6/Tools%20Executables/lua-5.4.6_Win64_bin.zip/download" -OutFile lua-bin.zip -UserAgent "Mozilla/5.0"
+        Expand-Archive -Path lua-bin.zip -DestinationPath lua-install -Force
+        
+        # Download lib files  
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/luabinaries/files/5.4.6/Windows%20Libraries/Dynamic/lua-5.4.6_Win64_dllw6_lib.zip/download" -OutFile lua-lib.zip -UserAgent "Mozilla/5.0"
+        Expand-Archive -Path lua-lib.zip -DestinationPath lua-install -Force
+        
+        # Create include directory structure
+        New-Item -ItemType Directory -Path lua-install/include -Force
+        Copy-Item lua-install/include/*.h lua-install/include/ -ErrorAction SilentlyContinue
+        
+        # Verify files
+        Get-ChildItem -Path lua-install -Recurse
         
     - name: Generate Lua mappings
       run: |
@@ -61,7 +69,7 @@ jobs:
       shell: cmd
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        cl /LD /O2 /TP qotp_decrypt.c /I"lua-5.4.6\src" /link "lua-bin\lua54.lib" User32.lib /OUT:qotp_decrypt.dll
+        cl /LD /O2 /TP qotp_decrypt.c /I"lua-install\include" /link "lua-install\lua54.lib" User32.lib /OUT:qotp_decrypt.dll
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -91,6 +99,12 @@ jobs:
       with:
         repository: tbocek/qotp
         path: qotp
+        
+    - name: Checkout qh dependency
+      uses: actions/checkout@v4
+      with:
+        repository: qh-project/qh
+        path: qh
       
     - name: Setup Go
       uses: actions/setup-go@v5
