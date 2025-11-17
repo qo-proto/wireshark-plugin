@@ -1,0 +1,163 @@
+name: Build QOTP Wireshark Plugin
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Checkout qotp dependency
+      uses: actions/checkout@v4
+      with:
+        repository: tbocek/qotp
+        path: qotp
+      
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup Lua headers
+      run: |
+        # Download Lua 5.4.6 headers and lib for Windows
+        $luaUrl = "https://github.com/lua/lua/archive/refs/tags/v5.4.6.zip"
+        Invoke-WebRequest -Uri $luaUrl -OutFile lua.zip
+        Expand-Archive lua.zip -DestinationPath .
+        
+        # For the actual Lua library, we'll use a prebuilt one
+        $luaBinUrl = "https://sourceforge.net/projects/luabinaries/files/5.4.6/Windows%20Libraries/Dynamic/lua-5.4.6_Win64_dllw6_lib.zip/download"
+        Invoke-WebRequest -Uri $luaBinUrl -OutFile lua-bin.zip -UserAgent "Mozilla/5.0"
+        Expand-Archive lua-bin.zip -DestinationPath lua-bin
+        
+    - name: Generate Lua mappings
+      run: |
+        Write-Host "Generating Lua mappings from Go types..."
+        go run generate_mappings.go qotp_dissector.lua
+        
+    - name: Build Go shared library
+      run: |
+        Write-Host "Building qotp_crypto.dll..."
+        $env:CGO_ENABLED = "1"
+        go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
+        
+    - name: Build C Lua module
+      shell: cmd
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cl /LD /O2 /TP qotp_decrypt.c /I"lua-5.4.6\src" /link "lua-bin\lua54.lib" User32.lib /OUT:qotp_decrypt.dll
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: qotp-wireshark-plugin-windows
+        path: |
+          qotp_dissector.lua
+          qotp_crypto.dll
+          qotp_decrypt.dll
+        retention-days: 90
+        
+    - name: Create release artifacts
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        $version = $env:GITHUB_REF -replace 'refs/tags/', ''
+        Compress-Archive -Path qotp_dissector.lua, qotp_crypto.dll, qotp_decrypt.dll -DestinationPath "qotp-wireshark-plugin-windows-$version.zip"
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Checkout qotp dependency
+      uses: actions/checkout@v4
+      with:
+        repository: tbocek/qotp
+        path: qotp
+      
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential liblua5.4-dev lua5.4
+        
+    - name: Generate Lua mappings
+      run: |
+        echo "Generating Lua mappings from Go types..."
+        go run generate_mappings.go qotp_dissector.lua
+        
+    - name: Build Go shared library
+      run: |
+        echo "Building qotp_crypto.so..."
+        CGO_ENABLED=1 go build -buildmode=c-shared -o qotp_crypto.so qotp_export.go
+        
+    - name: Build C Lua module
+      run: |
+        echo "Building qotp_decrypt.so..."
+        gcc -shared -fPIC -O2 qotp_decrypt.c -o qotp_decrypt.so \
+          -I/usr/include/lua5.4 -llua5.4 -L. -lqotp_crypto
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: qotp-wireshark-plugin-linux
+        path: |
+          qotp_dissector.lua
+          qotp_crypto.so
+          qotp_decrypt.so
+        retention-days: 90
+        
+    - name: Create release artifacts
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        version=${GITHUB_REF#refs/tags/}
+        tar -czf "qotp-wireshark-plugin-linux-$version.tar.gz" qotp_dissector.lua qotp_crypto.so qotp_decrypt.so
+        
+  create-release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qotp-wireshark-plugin-windows
+        path: windows
+        
+    - name: Download Linux artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qotp-wireshark-plugin-linux
+        path: linux
+        
+    - name: Create release archives
+      run: |
+        version=${GITHUB_REF#refs/tags/}
+        cd windows && zip -r "../qotp-wireshark-plugin-windows-$version.zip" * && cd ..
+        cd linux && tar -czf "../qotp-wireshark-plugin-linux-$version.tar.gz" * && cd ..
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          qotp-wireshark-plugin-windows-*.zip
+          qotp-wireshark-plugin-linux-*.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
