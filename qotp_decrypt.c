@@ -175,8 +175,16 @@ static const luaL_Reg funcs[] = {
     {NULL, NULL}
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 EXPORT
 int luaopen_qotp_decrypt(lua_State* L) {
     luaL_newlib(L, funcs);
     return 1;
 }
+
+#ifdef __cplusplus
+}
+#endif
