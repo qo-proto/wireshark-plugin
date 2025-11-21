@@ -1,0 +1,44 @@
+FROM golang:1.25-bookworm
+
+RUN apt-get update && apt-get install -y \
+    mingw-w64 \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download Lua headers for Windows
+RUN mkdir -p /lua-headers && \
+    cd /lua-headers && \
+    wget -q https://sourceforge.net/projects/luabinaries/files/5.2.4/Windows%20Libraries/Dynamic/lua-5.2.4_Win64_dllw6_lib.zip/download -O lua.zip && \
+    unzip lua.zip && \
+    rm lua.zip
+
+WORKDIR /build
+
+COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
+COPY mapping/ ./mapping/
+
+WORKDIR /build/mapping
+RUN go mod tidy
+RUN go run ./generate_mappings.go ../qotp_dissector.lua
+
+WORKDIR /build
+
+# Build Go DLL for Windows
+ENV CGO_ENABLED=1
+ENV GOOS=windows
+ENV GOARCH=amd64
+ENV CC=x86_64-w64-mingw32-gcc
+
+RUN go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
+
+# Build Lua bridge DLL for Windows  
+RUN x86_64-w64-mingw32-g++ -shared -o qotp_decrypt.dll qotp_decrypt.c \
+    -I/lua-headers/include \
+    /lua-headers/lua52.dll \
+    -static-libgcc \
+    -static-libstdc++
+
+VOLUME ["/output"]
+
+CMD ["sh", "-c", "cp qotp_crypto.dll qotp_decrypt.dll qotp_dissector.lua /output/"]

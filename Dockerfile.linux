@@ -1,0 +1,27 @@
+FROM golang:1.25-bookworm
+
+RUN apt-get update && apt-get install -y \
+    g++ \
+    liblua5.2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
+COPY mapping/ ./mapping/
+
+WORKDIR /build/mapping
+RUN go mod tidy
+RUN go run ./generate_mappings.go ../qotp_dissector.lua
+
+WORKDIR /build
+RUN go build -buildmode=c-shared -o libqotp_crypto.so qotp_export.go
+
+RUN g++ -shared -fPIC -o qotp_decrypt.so qotp_decrypt.c \
+    -I/usr/include/lua5.2 \
+    -llua5.2 \
+    -ldl
+    
+VOLUME ["/output"]
+
+CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so qotp_dissector.lua /output/"]

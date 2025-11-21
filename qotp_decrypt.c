@@ -1,35 +1,62 @@
-// qotp_decrypt.dll - Lua bridge to qotp_crypto.dll for Wireshark
+// qotp_decrypt - Lua bridge to qotp_crypto library for Wireshark
+// Cross-platform: Windows DLL and Linux SO
 
 #include <stdlib.h>
-#include "lua.hpp"
-#include <windows.h>
+#include <stdio.h>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #define EXPORT __declspec(dllexport)
+    #define LIB_HANDLE HMODULE
+    #define LOAD_LIB(name) LoadLibraryA(name)
+    #define GET_FUNC(lib, name) GetProcAddress(lib, name)
+    #define CLOSE_LIB(lib) FreeLibrary(lib)
+    #define LIB_NAME "qotp_crypto.dll"
+    #define SHOW_ERROR(msg) MessageBox(0, msg, "Error", MB_ICONERROR)
+#else
+    #include <dlfcn.h>
+    #define EXPORT __attribute__((visibility("default")))
+    #define LIB_HANDLE void*
+    #define LOAD_LIB(name) dlopen(name, RTLD_LAZY)
+    #define GET_FUNC(lib, name) dlsym(lib, name)
+    #define CLOSE_LIB(lib) dlclose(lib)
+    #define LIB_NAME "./libqotp_crypto.so"
+    #define SHOW_ERROR(msg) fprintf(stderr, "%s: %s\n", msg, dlerror())
+#endif
+
+#include <lua.h>
+#include <lauxlib.h>
 
 #define VERSION "1.0.0"
 
 typedef int (*SetKeyFunc)(unsigned long long, const char*);
+typedef int (*SetKeyIdFunc)(unsigned long long, const char*);
 typedef int (*DecryptFunc)(const char*, int, unsigned long long, int, unsigned long long, char*, int);
 typedef char* (*GetVersionFunc)();
 
-static HMODULE dll = NULL;
+static LIB_HANDLE dll = NULL;
 static SetKeyFunc set_key = NULL;
+static SetKeyIdFunc set_key_id = NULL;
 static DecryptFunc decrypt = NULL;
 static GetVersionFunc get_version = NULL;
 
 static int load_dll() {
     if (dll) return 1;
     
-    if (!(dll = LoadLibraryA("qotp_crypto.dll"))) {
-        MessageBox(0, "Failed to load qotp_crypto.dll", "Error", MB_ICONERROR);
+    dll = LOAD_LIB(LIB_NAME);
+    if (!dll) {
+        SHOW_ERROR("Failed to load crypto library");
         return 0;
     }
     
-    set_key = (SetKeyFunc)GetProcAddress(dll, "SetSharedSecretHex");
-    decrypt = (DecryptFunc)GetProcAddress(dll, "DecryptDataPacket");
-    get_version = (GetVersionFunc)GetProcAddress(dll, "GetVersion");
+    set_key = (SetKeyFunc)GET_FUNC(dll, "SetSharedSecretHex");
+    set_key_id = (SetKeyIdFunc)GET_FUNC(dll, "SetSharedSecretIdHex");
+    decrypt = (DecryptFunc)GET_FUNC(dll, "DecryptDataPacket");
+    get_version = (GetVersionFunc)GET_FUNC(dll, "GetVersion");
     
     if (!set_key || !decrypt) {
-        MessageBox(0, "Failed to load functions", "Error", MB_ICONERROR);
-        FreeLibrary(dll);
+        SHOW_ERROR("Failed to load functions");
+        CLOSE_LIB(dll);
         dll = NULL;
         return 0;
     }
@@ -95,6 +122,30 @@ static int lua_set_key(lua_State* L) {
     return 1;
 }
 
+static int lua_set_key_id(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    
+    if (!set_key_id) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    
+    unsigned long long conn_id;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        if (sscanf(luaL_checkstring(L, 1), "%llx", &conn_id) != 1) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    } else {
+        conn_id = luaL_checkinteger(L, 1);
+    }
+    
+    lua_pushboolean(L, set_key_id(conn_id, luaL_checkstring(L, 2)) == 0);
+    return 1;
+}
 
 static int lua_get_version(lua_State* L) {
     load_dll();
@@ -110,12 +161,13 @@ static int lua_test(lua_State* L) {
 static const luaL_Reg funcs[] = {
     {"decrypt_data", lua_decrypt_data},
     {"set_key", lua_set_key},
+    {"set_key_id", lua_set_key_id},
     {"get_version", lua_get_version},
     {"test", lua_test},
     {NULL, NULL}
 };
 
-extern "C" __declspec(dllexport)
+EXPORT
 int luaopen_qotp_decrypt(lua_State* L) {
     luaL_newlib(L, funcs);
     return 1;
