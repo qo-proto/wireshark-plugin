@@ -24,8 +24,16 @@
     #define SHOW_ERROR(msg) fprintf(stderr, "%s: %s\n", msg, dlerror())
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <lua.h>
 #include <lauxlib.h>
+
+#ifdef __cplusplus
+}
+#endif
 
 #define VERSION "1.0.0"
 
