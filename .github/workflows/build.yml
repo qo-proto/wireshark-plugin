@@ -27,6 +27,10 @@ jobs:
         repository: qh-project/qh
         path: qh
       
+    - name: Add pcap.go to qotp
+      run: |
+        Copy-Item -Path qotp_pcap_wrapper.go -Destination qotp\pcap.go
+      
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
@@ -92,6 +96,10 @@ jobs:
       with:
         repository: qh-project/qh
         path: qh
+      
+    - name: Add pcap.go to qotp
+      run: |
+        cp qotp_pcap_wrapper.go qotp/pcap.go
       
     - name: Setup Go
       uses: actions/setup-go@v5
