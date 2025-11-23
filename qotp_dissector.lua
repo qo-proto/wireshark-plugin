@@ -363,7 +363,6 @@ function qotp_proto.dissector(buffer, pinfo, tree)
     end
     
     if msg_type == 4 and buffer:len() > 9 then
-        local encrypted_portion = buffer(9, buffer:len() - 9):bytes()
         subtree:add(f_encrypted, buffer(9, buffer:len() - 9))
         local conn_id_hex = buffer_to_hex_string(buffer, 1, 8)
         
@@ -385,10 +384,12 @@ function qotp_proto.dissector(buffer, pinfo, tree)
         end
 
         if shared_secrets[conn_id_hex] then
+            -- Pass full packet data (header + conn_id + encrypted portion) to decrypt function
+            local full_packet = buffer(0, buffer:len()):bytes()
             local decrypted, used_epoch, used_sender
             for _, is_sender in ipairs({false, true}) do
                 for epoch = 0, 2 do
-                    decrypted = qotp_decrypt.decrypt_data(encrypted_portion:raw(), conn_id_hex, is_sender, epoch)
+                    decrypted = qotp_decrypt.decrypt_data(full_packet:raw(), conn_id_hex, is_sender, epoch)
                     if decrypted then
                         used_epoch, used_sender = epoch, is_sender
                         break
