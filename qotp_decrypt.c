@@ -37,7 +37,27 @@ static GetVersionFunc get_version = NULL;
 static int load_dll() {
     if (dll) return 1;
     
-    if (!(dll = LOAD_LIBRARY("qotp_crypto" SHARED_LIB_EXT))) {
+#ifdef _WIN32
+    // Get the path to the current DLL and construct path to qotp_crypto.dll
+    char dllPath[MAX_PATH];
+    HMODULE hModule;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCSTR)&load_dll, &hModule)) {
+        GetModuleFileNameA(hModule, dllPath, MAX_PATH);
+        char* lastSlash = strrchr(dllPath, '\\');
+        if (lastSlash) {
+            strcpy(lastSlash + 1, "qotp_crypto.dll");
+            dll = LOAD_LIBRARY(dllPath);
+        }
+    }
+    if (!dll) {
+        dll = LOAD_LIBRARY("qotp_crypto.dll");
+    }
+#else
+    dll = LOAD_LIBRARY("qotp_crypto" SHARED_LIB_EXT);
+#endif
+    
+    if (!dll) {
         SHOW_ERROR("Failed to load qotp_crypto" SHARED_LIB_EXT);
         return 0;
     }
