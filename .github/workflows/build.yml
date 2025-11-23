@@ -72,6 +72,11 @@ jobs:
         echo Checking qotp_crypto.dll dependencies...
         dumpbin /dependents qotp_crypto.dll
         
+    - name: Copy Lua DLL
+      run: |
+        Write-Host "Copying lua.dll from vcpkg..."
+        Copy-Item "$env:LUA_DIR\bin\lua.dll" -Destination . -Force
+        
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -80,6 +85,7 @@ jobs:
           qotp_dissector.lua
           qotp_crypto.dll
           qotp_decrypt.dll
+          lua.dll
         retention-days: 90
         
     - name: Create release artifacts
