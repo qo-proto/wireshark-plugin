@@ -1,8 +1,27 @@
-// qotp_decrypt.dll - Lua bridge to qotp_crypto.dll for Wireshark
+// qotp_decrypt - Lua bridge to qotp_crypto for Wireshark
 
 #include <stdlib.h>
+#include <stdio.h>
+
+#ifdef _WIN32
 #include "lua.hpp"
 #include <windows.h>
+#define SHARED_LIB_EXT ".dll"
+#define LOAD_LIBRARY(name) LoadLibraryA(name)
+#define GET_PROC_ADDRESS(handle, name) GetProcAddress(handle, name)
+#define SHOW_ERROR(msg) MessageBox(0, msg, "Error", MB_ICONERROR)
+typedef HMODULE LibHandle;
+#else
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+#include <dlfcn.h>
+#define SHARED_LIB_EXT ".so"
+#define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)
+#define GET_PROC_ADDRESS(handle, name) dlsym(handle, name)
+#define SHOW_ERROR(msg) fprintf(stderr, "%s\n", msg)
+typedef void* LibHandle;
+#endif
 
 #define VERSION "1.0.0"
 
@@ -10,7 +29,7 @@ typedef int (*SetKeyFunc)(unsigned long long, const char*);
 typedef int (*DecryptFunc)(const char*, int, unsigned long long, int, unsigned long long, char*, int);
 typedef char* (*GetVersionFunc)();
 
-static HMODULE dll = NULL;
+static LibHandle dll = NULL;
 static SetKeyFunc set_key = NULL;
 static DecryptFunc decrypt = NULL;
 static GetVersionFunc get_version = NULL;
@@ -18,18 +37,22 @@ static GetVersionFunc get_version = NULL;
 static int load_dll() {
     if (dll) return 1;
     
-    if (!(dll = LoadLibraryA("qotp_crypto.dll"))) {
-        MessageBox(0, "Failed to load qotp_crypto.dll", "Error", MB_ICONERROR);
+    if (!(dll = LOAD_LIBRARY("qotp_crypto" SHARED_LIB_EXT))) {
+        SHOW_ERROR("Failed to load qotp_crypto" SHARED_LIB_EXT);
         return 0;
     }
     
-    set_key = (SetKeyFunc)GetProcAddress(dll, "SetSharedSecretHex");
-    decrypt = (DecryptFunc)GetProcAddress(dll, "DecryptDataPacket");
-    get_version = (GetVersionFunc)GetProcAddress(dll, "GetVersion");
+    set_key = (SetKeyFunc)GET_PROC_ADDRESS(dll, "SetSharedSecretHex");
+    decrypt = (DecryptFunc)GET_PROC_ADDRESS(dll, "DecryptDataPacket");
+    get_version = (GetVersionFunc)GET_PROC_ADDRESS(dll, "GetVersion");
     
     if (!set_key || !decrypt) {
-        MessageBox(0, "Failed to load functions", "Error", MB_ICONERROR);
+        SHOW_ERROR("Failed to load functions");
+#ifdef _WIN32
         FreeLibrary(dll);
+#else
+        dlclose(dll);
+#endif
         dll = NULL;
         return 0;
     }
@@ -115,7 +138,11 @@ static const luaL_Reg funcs[] = {
     {NULL, NULL}
 };
 
+#ifdef _WIN32
 extern "C" __declspec(dllexport)
+#else
+extern
+#endif
 int luaopen_qotp_decrypt(lua_State* L) {
     luaL_newlib(L, funcs);
     return 1;

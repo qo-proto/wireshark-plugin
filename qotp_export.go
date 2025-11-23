@@ -46,7 +46,7 @@ func DecryptDataPacket(
 	}
 
 	encBytes := C.GoBytes(unsafe.Pointer(encryptedData), encryptedLen)
-	decrypted, err := qotp.DecryptDataForPcap(encBytes, isSender != 0, uint64(epoch), secret, uint64(connId))
+	decrypted, err := qotp.DecryptDataForPcap(encBytes, isSender != 0, uint64(epoch), secret)
 	if err != nil {
 		return -2
 	}
