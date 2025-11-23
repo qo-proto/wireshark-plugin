@@ -65,13 +65,11 @@ jobs:
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
         cl /LD /O2 /MD /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
-        
-    - name: Check DLL dependencies
-      run: |
-        Write-Host "Checking qotp_decrypt.dll dependencies..."
+        echo.
+        echo Checking qotp_decrypt.dll dependencies...
         dumpbin /dependents qotp_decrypt.dll
-        Write-Host ""
-        Write-Host "Checking qotp_crypto.dll dependencies..."
+        echo.
+        echo Checking qotp_crypto.dll dependencies...
         dumpbin /dependents qotp_crypto.dll
         
     - name: Upload artifacts
