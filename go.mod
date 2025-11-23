@@ -3,7 +3,7 @@ module github.com/qo-proto/wireshark-plugin
 go 1.25.1
 
 require (
-	github.com/qo-proto/qh v0.0.0
+	github.com/qo-proto/qh v0.0.4
 	github.com/qo-proto/qotp v0.2.9
 )
 
@@ -17,6 +17,6 @@ require (
 )
 
 replace (
-	github.com/qh-project/qh => ../qh
-	github.com/tbocek/qotp => ../qotp
+	github.com/qo-proto/qh => ../qh
+	github.com/qo-proto/qotp => ../qotp
 )
