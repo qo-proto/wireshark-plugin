@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/qh-project/qh"
+	"github.com/qo-proto/qh"
 )
 
 func main() {
