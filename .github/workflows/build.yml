@@ -51,8 +51,8 @@ jobs:
       
     - name: Setup Lua
       run: |
-        vcpkg install lua:x64-windows
-        echo "LUA_DIR=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
+        vcpkg install lua:x64-windows-static
+        echo "LUA_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
       
     - name: Build Go shared library
       run: |
@@ -64,18 +64,13 @@ jobs:
       shell: cmd
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        cl /LD /O2 /MD /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
+        cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
         echo.
         echo Checking qotp_decrypt.dll dependencies...
         dumpbin /dependents qotp_decrypt.dll
         echo.
         echo Checking qotp_crypto.dll dependencies...
         dumpbin /dependents qotp_crypto.dll
-        
-    - name: Copy Lua DLL
-      run: |
-        Write-Host "Copying lua.dll from vcpkg..."
-        Copy-Item "$env:LUA_DIR\bin\lua.dll" -Destination . -Force
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -85,7 +80,6 @@ jobs:
           qotp_dissector.lua
           qotp_crypto.dll
           qotp_decrypt.dll
-          lua.dll
         retention-days: 90
         
     - name: Create release artifacts
