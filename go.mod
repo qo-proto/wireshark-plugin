@@ -17,6 +17,6 @@ require (
 )
 
 replace (
-	github.com/qo-proto/qh => ../qh
-	github.com/qo-proto/qotp => ../qotp
+	github.com/qo-proto/qh => ./qh
+	github.com/qo-proto/qotp => ./qotp
 )
