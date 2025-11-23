@@ -118,11 +118,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential liblua5.4-dev lua5.4
         
-    - name: Generate Lua mappings
-      run: |
-        echo "Generating Lua mappings from Go types..."
-        go run generate_mappings.go qotp_dissector.lua
-        
     - name: Build Go shared library
       run: |
         echo "Building qotp_crypto.so..."
