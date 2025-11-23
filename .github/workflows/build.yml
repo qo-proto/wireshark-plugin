@@ -108,7 +108,7 @@ jobs:
         
     - name: Setup dependencies
       run: |
-        go get -d ./...
+        go mod tidy
         go mod download
         
     - name: Install dependencies
