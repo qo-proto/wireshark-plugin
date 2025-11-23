@@ -38,7 +38,14 @@ func DecryptDataPacket(
 	isSender C.int,
 	epoch C.ulonglong,
 	output *C.char,
-	outputMaxLen C.int) C.int {
+	outputMaxLen C.int) (result C.int) {
+
+	// Recover from panics to avoid crashing Wireshark
+	defer func() {
+		if r := recover(); r != nil {
+			result = -4 // Return -4 for panic/crash
+		}
+	}()
 
 	secret, ok := sharedSecrets[uint64(connId)]
 	if !ok {
@@ -46,6 +53,12 @@ func DecryptDataPacket(
 	}
 
 	encBytes := C.GoBytes(unsafe.Pointer(encryptedData), encryptedLen)
+	
+	// Basic length validation before attempting decryption
+	if len(encBytes) < 30 { // Minimum: SnSize(6) + nonceRand(24)
+		return -2
+	}
+	
 	decrypted, err := qotp.DecryptDataForPcap(encBytes, isSender != 0, uint64(epoch), secret)
 	if err != nil {
 		return -2
