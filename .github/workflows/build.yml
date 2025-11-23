@@ -108,7 +108,7 @@ jobs:
         
     - name: Setup dependencies
       run: |
-        go get github.com/qo-proto/qh
+        go mod edit -require=github.com/qo-proto/qh@v0.0.4
         go mod tidy
         go mod download
         
