@@ -6,6 +6,7 @@ package main
 import "C"
 import (
 	"encoding/hex"
+	"fmt"
 	"unsafe"
 
 	"github.com/qo-proto/qotp"
@@ -49,20 +50,27 @@ func DecryptDataPacket(
 
 	secret, ok := sharedSecrets[uint64(connId)]
 	if !ok {
+		fmt.Printf("[qotp_crypto] Key not found for connId=%d\n", connId)
 		return -1
 	}
 
 	encBytes := C.GoBytes(unsafe.Pointer(encryptedData), encryptedLen)
-	
+	fmt.Printf("[qotp_crypto] Decrypt attempt: connId=%d, len=%d, isSender=%v, epoch=%d\n",
+		connId, len(encBytes), isSender != 0, epoch)
+
 	// Basic length validation before attempting decryption
 	if len(encBytes) < 30 { // Minimum: SnSize(6) + nonceRand(24)
+		fmt.Printf("[qotp_crypto] Length too short: %d < 30\n", len(encBytes))
 		return -2
 	}
-	
+
 	decrypted, err := qotp.DecryptDataForPcap(encBytes, isSender != 0, uint64(epoch), secret)
 	if err != nil {
+		fmt.Printf("[qotp_crypto] DecryptDataForPcap failed: %v\n", err)
 		return -2
 	}
+
+	fmt.Printf("[qotp_crypto] Decryption SUCCESS! Decrypted %d bytes\n", len(decrypted))
 
 	if len(decrypted) > int(outputMaxLen) {
 		return -3

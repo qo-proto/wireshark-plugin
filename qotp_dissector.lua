@@ -386,10 +386,17 @@ function qotp_proto.dissector(buffer, pinfo, tree)
         if shared_secrets[conn_id_hex] then
             -- Pass full packet data (header + conn_id + encrypted portion) to decrypt function
             local full_packet = buffer(0, buffer:len()):bytes()
+            if pinfo.visited == false then
+                print(string.format("Attempting decrypt: packet_len=%d", buffer:len()))
+            end
             local decrypted, used_epoch, used_sender
             for _, is_sender in ipairs({false, true}) do
                 for epoch = 0, 2 do
                     decrypted = qotp_decrypt.decrypt_data(full_packet:raw(), conn_id_hex, is_sender, epoch)
+                    if pinfo.visited == false then
+                        print(string.format("  Try: is_sender=%s epoch=%d result=%s", 
+                            tostring(is_sender), epoch, decrypted and "SUCCESS" or "FAILED"))
+                    end
                     if decrypted then
                         used_epoch, used_sender = epoch, is_sender
                         break
