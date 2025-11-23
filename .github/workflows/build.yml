@@ -110,6 +110,7 @@ jobs:
       run: |
         go get ./qh/...
         go get ./qotp/...
+        go mod tidy
         go mod download
         
     - name: Install dependencies
