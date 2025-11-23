@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"unsafe"
 
-	"github.com/tbocek/qotp"
+	"github.com/qo-proto/qotp"
 )
 
 const Version = "1.0.0"

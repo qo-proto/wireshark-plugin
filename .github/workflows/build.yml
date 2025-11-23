@@ -18,13 +18,13 @@ jobs:
     - name: Checkout qotp dependency
       uses: actions/checkout@v4
       with:
-        repository: tbocek/qotp
+        repository: qo-proto/qotp
         path: qotp
         
     - name: Checkout qh dependency
       uses: actions/checkout@v4
       with:
-        repository: qh-project/qh
+        repository: qo-proto/qh
         path: qh
       
     - name: Add pcap.go to qotp
@@ -88,13 +88,13 @@ jobs:
     - name: Checkout qotp dependency
       uses: actions/checkout@v4
       with:
-        repository: tbocek/qotp
+        repository: qo-proto/qotp
         path: qotp
         
     - name: Checkout qh dependency
       uses: actions/checkout@v4
       with:
-        repository: qh-project/qh
+        repository: qo-proto/qh
         path: qh
       
     - name: Add pcap.go to qotp
