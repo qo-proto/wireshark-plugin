@@ -35,7 +35,7 @@ $luaInclude = "C:\Users\gian\sa\wireshark\wireshark-libs\lua-5.4.6-unicode-win64
 $luaLib = "C:\Users\gian\sa\wireshark\wireshark-libs\lua-5.4.6-unicode-win64-vc14\lua54.lib"
 $currentDir = (Get-Location).Path
 
-$buildCmd = "vcvars64.bat & cd /d `"$currentDir`" & cl /LD /O2 /TP qotp_decrypt.c /I`"`"$luaInclude`"`" /link `"`"$luaLib`"`" User32.lib /OUT:qotp_decrypt.dll"
+$buildCmd = "vcvars64.bat & cd /d `"$currentDir`" & cl /LD /O2 /MT /TP qotp_decrypt.c /I`"`"$luaInclude`"`" /link `"`"$luaLib`"`" User32.lib /OUT:qotp_decrypt.dll"
 
 cmd /c $buildCmd
 

@@ -173,6 +173,7 @@ local qh_methods = {
     [3] = "PATCH",
     [4] = "DELETE",
     [5] = "HEAD",
+    [6] = "OPTIONS",
 }
 
 local compact_to_status = {
