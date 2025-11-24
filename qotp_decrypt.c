@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
 #include "lua.hpp"
 #include <windows.h>
 #define SHARED_LIB_EXT ".dll"
