@@ -70,7 +70,7 @@ jobs:
         @echo off
         echo Locating Wireshark Lua libraries...
         set "WIRESHARK_PATH=C:\Program Files\Wireshark"
-        set "LUA_PATH=C:\Program Files (x86)\Lua\5.4\include"
+        set "LUA_PATH=C:\Program Files (x86)\Lua\5.1\include"
         set "LUA_INCLUDE="
         set "LUA_DLL="
         set "LUA_FOUND=0"
