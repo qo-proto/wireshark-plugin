@@ -64,8 +64,6 @@ jobs:
         Expand-Archive -Path $out -DestinationPath "$env:GITHUB_WORKSPACE\lua54-sdk"
           $dest = "$env:GITHUB_WORKSPACE\lua54-sdk"
           Write-Host "Lua SDK extracted to: $dest"
-          Write-Host "Listing all files in Lua SDK directory:"
-          Get-ChildItem -Path $dest -Recurse | Write-Host
        
     - name: Find Wireshark Lua libraries
       shell: cmd
@@ -76,9 +74,6 @@ jobs:
         set "LUA_PATH=%LUA_SDK_ROOT%\include"
         set "LUA_INCLUDE=%LUA_SDK_ROOT%\include"
         set "LUA_LIB=%LUA_SDK_ROOT%\lua54.lib"
-        echo Environment variables:
-        echo   LUA_INCLUDE=%LUA_INCLUDE%
-        echo   LUA_LIB=%LUA_LIB%
         echo LUA_PATH=%LUA_PATH%>> %GITHUB_ENV%
         echo LUA_INCLUDE=%LUA_INCLUDE%>> %GITHUB_ENV%
         echo LUA_LIB=%LUA_LIB%>> %GITHUB_ENV%
