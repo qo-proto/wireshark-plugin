@@ -66,13 +66,7 @@ jobs:
           Write-Host "Lua SDK extracted to: $dest"
           Write-Host "Listing all files in Lua SDK directory:"
           Get-ChildItem -Path $dest -Recurse | Write-Host
-      
-    - name: Install Wireshark (to get Lua libraries)
-      run: |
-        Write-Host "Installing Wireshark to get correct Lua libraries..."
-        choco install wireshark -y --no-progress
-
-        
+       
     - name: Find Wireshark Lua libraries
       shell: cmd
       run: |
