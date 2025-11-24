@@ -54,6 +54,11 @@ jobs:
         vcpkg install lua:x64-windows-static
         echo "LUA_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
       
+    - name: Verify Lua installation
+      run: |
+        Write-Host "Checking Lua installation..."
+        Get-ChildItem -Path "C:\vcpkg\installed\x64-windows-static" -Recurse | Where-Object { $_.Name -like "*lua*" }
+        
     - name: Build Go shared library
       run: |
         Write-Host "Building qotp_crypto.dll..."
@@ -64,6 +69,9 @@ jobs:
       shell: cmd
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        echo Building qotp_decrypt.dll...
+        echo Using LUA_DIR=%LUA_DIR%
+        dir "%LUA_DIR%\lib"
         cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
         echo.
         echo Checking qotp_decrypt.dll dependencies...

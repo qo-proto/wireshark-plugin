@@ -87,9 +87,9 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern int SetSharedSecretHex(long long unsigned int connId, char* secretHex);
-extern char* GetVersion(void);
-extern int DecryptDataPacket(char* encryptedData, int encryptedLen, long long unsigned int connId, int isSender, long long unsigned int epoch, char* output, int outputMaxLen);
+extern __declspec(dllexport) int SetSharedSecretHex(long long unsigned int connId, char* secretHex);
+extern __declspec(dllexport) char* GetVersion(void);
+extern __declspec(dllexport) int DecryptDataPacket(char* encryptedData, int encryptedLen, long long unsigned int connId, int isSender, long long unsigned int epoch, char* output, int outputMaxLen);
 
 #ifdef __cplusplus
 }
