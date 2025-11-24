@@ -60,8 +60,8 @@ jobs:
         choco install wireshark -y --no-progress
         
     - name: Find Wireshark Lua libraries
-        shell: cmd
-        run: |
+      shell: cmd
+      run: |
         @echo off
         echo Locating Wireshark Lua libraries...
         set "WIRESHARK_PATH=C:\Program Files\Wireshark"
