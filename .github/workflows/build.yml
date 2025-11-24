@@ -57,7 +57,7 @@ jobs:
     - name: Download Wireshark Lua 5.4.6 SDK
       shell: pwsh
       run: |
-        $url = "https://gitlab.com/wireshark/wireshark-development-libraries/-/raw/master/public/windows/packages/lua/lua-5.4.6-unicode-win64-vc14.zip"
+        $url = "https://gitlab.com/wireshark/wireshark-development-libraries/-/raw/main/public/windows/packages/lua/lua-5.4.6-unicode-win64-vc14.zip"
         $out = "$env:GITHUB_WORKSPACE\lua54-sdk.zip"
         Write-Host "Downloading Lua SDK from $url ..."
         Invoke-WebRequest -Uri $url -OutFile $out
