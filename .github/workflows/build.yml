@@ -70,10 +70,16 @@ jobs:
         @echo off
         echo Locating Wireshark Lua libraries...
         set "WIRESHARK_PATH=C:\Program Files\Wireshark"
-        set "LUA_PATH=C:\Program Files (x86)\Lua\5.1\include"
+        set "LUA_PATH="
         set "LUA_INCLUDE="
         set "LUA_DLL="
         set "LUA_FOUND=0"
+        REM Prefer ./build/helpers if lua.h is present
+        if exist "%GITHUB_WORKSPACE%\build\helpers\lua.h" (
+          set "LUA_PATH=%GITHUB_WORKSPACE%\build\helpers"
+          set "LUA_INCLUDE=%GITHUB_WORKSPACE%\build\helpers"
+          set "LUA_FOUND=1"
+        )
         
         REM Search for lua54.dll in Wireshark
         echo Searching for lua54.dll...
@@ -139,6 +145,11 @@ jobs:
       run: |
         Write-Host "Building qotp_decrypt.dll..."
         $currentDir = Get-Location
+        # Prefer ./build/helpers if present
+        if (Test-Path "$env:GITHUB_WORKSPACE\build\helpers\lua.h") {
+          $env:LUA_PATH = "$env:GITHUB_WORKSPACE\build\helpers"
+          $env:LUA_INCLUDE = "$env:GITHUB_WORKSPACE\build\helpers"
+        }
         Write-Host "Using Lua include: $env:LUA_INCLUDE"
         Write-Host "Using Lua lib: $env:LUA_LIB"
         Write-Host "Lua Path directory: $env:LUA_PATH"
