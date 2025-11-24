@@ -124,7 +124,7 @@ jobs:
         $env:CGO_ENABLED = "1"
         go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
 
-    - name: Debug: List files in Lua include directory
+    - name: List files in Lua include directory
       shell: pwsh
       run: |
         if ($env:LUA_INCLUDE -and (Test-Path $env:LUA_INCLUDE)) {
