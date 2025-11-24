@@ -4,7 +4,11 @@
 #include <stdio.h>
 
 #ifdef _WIN32
-#include "lua.hpp"
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
 #include <windows.h>
 #define SHARED_LIB_EXT ".dll"
 #define LOAD_LIBRARY(name) LoadLibraryA(name)
@@ -12,9 +16,11 @@
 #define SHOW_ERROR(msg) MessageBox(0, msg, "Error", MB_ICONERROR)
 typedef HMODULE LibHandle;
 #else
+extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+}
 #include <dlfcn.h>
 #define SHARED_LIB_EXT ".so"
 #define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)

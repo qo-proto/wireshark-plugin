@@ -51,8 +51,8 @@ jobs:
       
     - name: Setup Lua
       run: |
-        vcpkg install lua:x64-windows-static
-        echo "LUA_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
+        vcpkg install lua:x64-windows
+        echo "LUA_DIR=C:\vcpkg\installed\x64-windows" >> $env:GITHUB_ENV
       
     - name: Verify Lua installation
       run: |
@@ -72,7 +72,7 @@ jobs:
         echo Building qotp_decrypt.dll...
         echo Using LUA_DIR=%LUA_DIR%
         dir "%LUA_DIR%\lib"
-        cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
+        cl /LD /O2 /MD /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
         echo.
         echo Checking qotp_decrypt.dll dependencies...
         dumpbin /dependents qotp_decrypt.dll
