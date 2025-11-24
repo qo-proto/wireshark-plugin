@@ -1,7 +1,12 @@
 // qotp_decrypt - Lua bridge to qotp_crypto for Wireshark
 
+#ifndef _WIN32
+#define _GNU_SOURCE  // For dladdr on Linux
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef _WIN32
 #include "lua.hpp"
@@ -54,7 +59,31 @@ static int load_dll() {
         dll = LOAD_LIBRARY("qotp_crypto.dll");
     }
 #else
-    dll = LOAD_LIBRARY("qotp_crypto" SHARED_LIB_EXT);
+    // On Linux, try to load from the same directory as this module
+    Dl_info info;
+    if (dladdr((void*)load_dll, &info) && info.dli_fname) {
+        // Get directory of current module
+        char path[4096];
+        const char* lastSlash = strrchr(info.dli_fname, '/');
+        if (lastSlash) {
+            size_t dirLen = lastSlash - info.dli_fname + 1;
+            if (dirLen < sizeof(path) - 20) {  // Leave room for filename
+                memcpy(path, info.dli_fname, dirLen);
+                strcpy(path + dirLen, "qotp_crypto.so");
+                dll = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+                if (dll) {
+                    printf("[qotp_decrypt] Loaded qotp_crypto.so from: %s\n", path);
+                }
+            }
+        }
+    }
+    // Fallback: try relative and absolute paths
+    if (!dll) {
+        dll = dlopen("./qotp_crypto.so", RTLD_LAZY | RTLD_GLOBAL);
+    }
+    if (!dll) {
+        dll = dlopen("qotp_crypto.so", RTLD_LAZY | RTLD_GLOBAL);
+    }
 #endif
     
     if (!dll) {

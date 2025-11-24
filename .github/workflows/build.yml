@@ -206,7 +206,9 @@ jobs:
     - name: Build C Lua module
       run: |
         echo "Building qotp_decrypt.so..."
-        gcc -shared -fPIC -O2 qotp_decrypt.c -o qotp_decrypt.so -I/usr/include/lua5.4 -llua5.4
+        gcc -shared -fPIC -O2 qotp_decrypt.c -o qotp_decrypt.so -I/usr/include/lua5.4 -llua5.4 -ldl
+        echo "Checking qotp_decrypt.so dependencies..."
+        ldd qotp_decrypt.so
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

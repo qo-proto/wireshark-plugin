@@ -18,7 +18,22 @@ if script_dir then
     
     -- Pre-load qotp_crypto library using absolute path
     local qotp_crypto_path = script_dir .. path_sep .. "qotp_crypto" .. lib_ext
-    package.loadlib(qotp_crypto_path, "*")
+    local loadlib_result, loadlib_err = package.loadlib(qotp_crypto_path, "*")
+    if loadlib_result then
+        -- Call the loader function to actually load the library
+        local load_success, load_err = pcall(loadlib_result)
+        if not load_success then
+            print("Warning: Failed to pre-load qotp_crypto: " .. tostring(load_err))
+        else
+            print("Successfully pre-loaded qotp_crypto")
+        end
+    else
+        print("Warning: package.loadlib failed for qotp_crypto: " .. tostring(loadlib_err))
+        -- On Linux, we might need to rely on LD_LIBRARY_PATH or RPATH instead
+        if not is_windows then
+            print("On Linux: Make sure qotp_crypto.so is in the same directory as qotp_decrypt.so")
+        end
+    end
     
     print("Script directory: " .. script_dir)
     print("Package cpath: " .. package.cpath)
