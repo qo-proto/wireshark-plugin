@@ -4,11 +4,7 @@
 #include <stdio.h>
 
 #ifdef _WIN32
-extern "C" {
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
+#include "lua.hpp"
 #include <windows.h>
 #define SHARED_LIB_EXT ".dll"
 #define LOAD_LIBRARY(name) LoadLibraryA(name)
@@ -16,11 +12,9 @@ extern "C" {
 #define SHOW_ERROR(msg) MessageBox(0, msg, "Error", MB_ICONERROR)
 typedef HMODULE LibHandle;
 #else
-extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-}
 #include <dlfcn.h>
 #define SHARED_LIB_EXT ".so"
 #define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)
@@ -94,15 +88,6 @@ static int lua_decrypt_data(lua_State* L) {
     
     size_t len;
     const char* encrypted = luaL_checklstring(L, 1, &len);
-    printf("[qotp_decrypt.c] lua_decrypt_data called: len=%zu, encrypted=%p, lua_gettop=%d\n", 
-           len, (void*)encrypted, lua_gettop(L));
-    
-    // Validate minimum packet size
-    if (len == 0) {
-        printf("[qotp_decrypt.c] ERROR: len=0, refusing to decrypt empty packet\n");
-        lua_pushnil(L);
-        return 1;
-    }
     
     unsigned long long conn_id;
     const char* conn_id_str = NULL;
