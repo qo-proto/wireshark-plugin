@@ -210,9 +210,14 @@ static const luaL_Reg funcs[] = {
 };
 
 #ifdef _WIN32
-extern "C" __declspec(dllexport)
+#ifdef __cplusplus
+extern "C"
+#endif
+__declspec(dllexport)
 #else
-extern
+#ifdef __cplusplus
+extern "C"
+#endif
 #endif
 int luaopen_qotp_decrypt(lua_State* L) {
     luaL_newlib(L, funcs);
