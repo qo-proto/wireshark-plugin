@@ -53,6 +53,15 @@ jobs:
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
+
+    - name: Download Wireshark Lua 5.4.6 SDK
+      shell: pwsh
+      run: |
+        $url = "https://gitlab.com/wireshark/wireshark-development-libraries/-/raw/master/public/windows/packages/lua/lua-5.4.6-unicode-win64-vc14.zip"
+        $out = "$env:GITHUB_WORKSPACE\lua54-sdk.zip"
+        Write-Host "Downloading Lua SDK from $url ..."
+        Invoke-WebRequest -Uri $url -OutFile $out
+        Expand-Archive -Path $out -DestinationPath "$env:GITHUB_WORKSPACE\lua54-sdk"
       
     - name: Install Wireshark (to get Lua libraries)
       run: |
@@ -70,16 +79,10 @@ jobs:
         @echo off
         echo Locating Wireshark Lua libraries...
         set "WIRESHARK_PATH=C:\Program Files\Wireshark"
-        set "LUA_PATH="
-        set "LUA_INCLUDE="
-        set "LUA_DLL="
-        set "LUA_FOUND=0"
-        REM Prefer ./build/helpers if lua.h is present
-        if exist "%GITHUB_WORKSPACE%\build\helpers\lua.h" (
-          set "LUA_PATH=%GITHUB_WORKSPACE%\build\helpers"
-          set "LUA_INCLUDE=%GITHUB_WORKSPACE%\build\helpers"
-          set "LUA_FOUND=1"
-        )
+        set "LUA_PATH=%GITHUB_WORKSPACE%\lua54-sdk\include"
+        set "LUA_INCLUDE=%GITHUB_WORKSPACE%\lua54-sdk\include"
+        set "LUA_LIB=%GITHUB_WORKSPACE%\lua54-sdk\lib\lua54.lib"
+        set "LUA_FOUND=1"
         
         REM Search for lua54.dll in Wireshark
         echo Searching for lua54.dll...
