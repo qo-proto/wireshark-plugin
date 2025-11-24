@@ -72,16 +72,52 @@ jobs:
         REM Search for lua.h in Wireshark
         echo Searching for lua.h in Wireshark...
         
-        REM If not found, install Lua via Chocolatey and search there
+        REM If not found, install Lua via Chocolatey and search all common locations
         if "%LUA_FOUND%"=="0" (
           echo lua.h not found in Wireshark, installing Lua via Chocolatey...
           choco install lua -y --no-progress
-          set "LUA_CHOCO_PATH='C:\Program Files (x86)\Lua\5.1\include'"
-          for /r "%LUA_CHOCO_PATH%" %%f in (lua.h) do (
+          REM Try Program Files (x86) Lua 5.1
+          set "LUA_CHOCO_PATH1=C:\Program Files (x86)\Lua\5.1\include"
+          if exist "%LUA_CHOCO_PATH1%\lua.h" (
+            set "LUA_INCLUDE=%LUA_CHOCO_PATH1%"
+            set "LUA_FOUND=1"
+            goto :found_include
+          )
+          REM Try Program Files (x86) Lua 5.4
+          set "LUA_CHOCO_PATH2=C:\Program Files (x86)\Lua\5.4\include"
+          if exist "%LUA_CHOCO_PATH2%\lua.h" (
+            set "LUA_INCLUDE=%LUA_CHOCO_PATH2%"
+            set "LUA_FOUND=1"
+            goto :found_include
+          )
+          REM Try Program Files Lua 5.4
+          set "LUA_CHOCO_PATH3=C:\Program Files\Lua\5.4\include"
+          if exist "%LUA_CHOCO_PATH3%\lua.h" (
+            set "LUA_INCLUDE=%LUA_CHOCO_PATH3%"
+            set "LUA_FOUND=1"
+            goto :found_include
+          )
+          REM Try Program Files Lua 5.1
+          set "LUA_CHOCO_PATH4=C:\Program Files\Lua\5.1\include"
+          if exist "%LUA_CHOCO_PATH4%\lua.h" (
+            set "LUA_INCLUDE=%LUA_CHOCO_PATH4%"
+            set "LUA_FOUND=1"
+            goto :found_include
+          )
+          REM Try Chocolatey tools path
+          set "LUA_CHOCO_PATH5=C:\ProgramData\chocolatey\lib\lua\tools"
+          for /r "%LUA_CHOCO_PATH5%" %%f in (lua.h) do (
             set "LUA_INCLUDE=%%~dpf"
             set "LUA_FOUND=1"
             goto :found_include
           )
+          REM Debug output
+          echo Directory listing for C:\Program Files (x86)\Lua:
+          dir "C:\Program Files (x86)\Lua" /s /b
+          echo Directory listing for C:\Program Files\Lua:
+          dir "C:\Program Files\Lua" /s /b
+          echo Directory listing for C:\ProgramData\chocolatey\lib\lua:
+          dir "C:\ProgramData\chocolatey\lib\lua" /s /b
         )
         
         if "%LUA_FOUND%"=="0" (
