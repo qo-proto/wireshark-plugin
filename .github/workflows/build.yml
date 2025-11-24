@@ -83,9 +83,10 @@ jobs:
         @echo off
         echo Locating Wireshark Lua libraries...
         set "WIRESHARK_PATH=C:\Program Files\Wireshark"
-        set "LUA_PATH=%GITHUB_WORKSPACE%\lua54-sdk\include"
-        set "LUA_INCLUDE=%GITHUB_WORKSPACE%\lua54-sdk\include"
-        set "LUA_LIB=%GITHUB_WORKSPACE%\lua54-sdk\lib\lua54.lib"
+        set "LUA_SDK_ROOT=%GITHUB_WORKSPACE%\lua54-sdk\lua-5.4.6-unicode-win64-vc14"
+        set "LUA_PATH=%LUA_SDK_ROOT%\include"
+        set "LUA_INCLUDE=%LUA_SDK_ROOT%\include"
+        set "LUA_LIB=%LUA_SDK_ROOT%\lua54.lib"
         set "LUA_FOUND=1"
         
         REM Search for lua54.dll in Wireshark
