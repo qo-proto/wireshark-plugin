@@ -60,67 +60,27 @@ jobs:
         choco install wireshark -y --no-progress
         
     - name: Find Wireshark Lua libraries
-      shell: cmd
+      shell: pwsh
       run: |
-        @echo off
-        echo Locating Wireshark Lua libraries...
-        set "WIRESHARK_PATH=C:\Program Files\Wireshark"
-        
-        REM Search for lua.h
-        echo Searching for lua.h...
-        for /r "%WIRESHARK_PATH%" %%f in (lua.h) do (
-            set "LUA_INCLUDE=%%~dpf"
-            goto :found_include
-        )
-        echo ERROR: lua.h not found!
-        exit /b 1
-        
-        :found_include
-        REM Remove trailing backslash
-        if "%LUA_INCLUDE:~-1%"=="\" set "LUA_INCLUDE=%LUA_INCLUDE:~0,-1%"
-        echo Found Lua include: %LUA_INCLUDE%
-        
-        REM Search for lua54.dll
-        echo Searching for lua54.dll...
-        for /r "%WIRESHARK_PATH%" %%f in (lua54.dll) do (
-            set "LUA_DLL=%%f"
-            goto :found_dll
-        )
-        echo ERROR: lua54.dll not found!
-        exit /b 1
-        
-        :found_dll
-        echo Found Lua DLL: %LUA_DLL%
-        
-        REM Setup MSVC environment
-        echo Setting up MSVC environment...
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        
-        REM Generate .lib from .dll
-        set "LUA_LIB=%TEMP%\lua54.lib"
-        echo Generating lua54.lib from lua54.dll...
-        
-        REM Extract exports
-        dumpbin /exports "%LUA_DLL%" > "%TEMP%\exports.txt"
-        
-        REM Create .def file (simple approach - export all lua* functions)
-        echo LIBRARY lua54 > "%TEMP%\lua54.def"
-        echo EXPORTS >> "%TEMP%\lua54.def"
-        for /f "tokens=4" %%a in ('findstr /r "^[[:space:]]*[0-9].*lua" "%TEMP%\exports.txt"') do (
-            echo %%a >> "%TEMP%\lua54.def"
-        )
-        
-        REM Generate .lib from .def
-        lib /def:"%TEMP%\lua54.def" /out:"%LUA_LIB%" /machine:x64
-        
-        echo.
-        echo Environment variables:
-        echo   LUA_INCLUDE=%LUA_INCLUDE%
-        echo   LUA_LIB=%LUA_LIB%
-        
-        REM Write to GitHub environment
-        echo LUA_INCLUDE=%LUA_INCLUDE%>> %GITHUB_ENV%
-        echo LUA_LIB=%LUA_LIB%>> %GITHUB_ENV%
+        Write-Host "Locating Wireshark Lua libraries..."
+        $wiresharkPath = "C:\Program Files\Wireshark"
+        $luaHeader = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua.h" | Select-Object -First 1
+        if (-not $luaHeader) {
+          Write-Host "ERROR: lua.h not found!"
+          exit 1
+        }
+        $luaInclude = $luaHeader.DirectoryName
+        Write-Host "Found Lua include: $luaInclude"
+        $luaDll = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua54.dll" | Select-Object -First 1
+        if (-not $luaDll) {
+          Write-Host "ERROR: lua54.dll not found!"
+          exit 1
+        }
+        Write-Host "Found Lua DLL: $($luaDll.FullName)"
+        $luaLib = Join-Path $luaDll.DirectoryName "lua54.lib"
+        Write-Host "Using Lua LIB: $luaLib"
+        echo "LUA_INCLUDE=$luaInclude" | Out-File -FilePath $env:GITHUB_ENV -Append
+        echo "LUA_LIB=$luaLib" | Out-File -FilePath $env:GITHUB_ENV -Append
         
     - name: Build Go shared library
       run: |
