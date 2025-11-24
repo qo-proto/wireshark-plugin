@@ -55,57 +55,67 @@ jobs:
         choco install wireshark -y --no-progress
         
     - name: Find Wireshark Lua libraries
+      shell: cmd
       run: |
-        Write-Host "Locating Wireshark Lua libraries..."
-        $wiresharkPath = "C:\Program Files\Wireshark"
+        @echo off
+        echo Locating Wireshark Lua libraries...
+        set "WIRESHARK_PATH=C:\Program Files\Wireshark"
         
-        # Wireshark includes lua54.dll and lua headers
-        $luaInclude = "$wiresharkPath\include\lua"
-        $luaDll = "$wiresharkPath\lua54.dll"
+        REM Search for lua.h
+        echo Searching for lua.h...
+        for /r "%WIRESHARK_PATH%" %%f in (lua.h) do (
+            set "LUA_INCLUDE=%%~dpf"
+            goto :found_include
+        )
+        echo ERROR: lua.h not found!
+        exit /b 1
         
-        Write-Host "Checking for Lua files..."
-        Write-Host "  Lua include dir: $luaInclude"
-        Write-Host "  Lua DLL: $luaDll"
+        :found_include
+        REM Remove trailing backslash
+        if "%LUA_INCLUDE:~-1%"=="\" set "LUA_INCLUDE=%LUA_INCLUDE:~0,-1%"
+        echo Found Lua include: %LUA_INCLUDE%
         
-        if (-not (Test-Path $luaInclude)) {
-            Write-Host "Lua include not found at expected location, searching..."
-            $luaInclude = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua.h" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.DirectoryName }
-            Write-Host "  Found at: $luaInclude"
-        }
+        REM Search for lua54.dll
+        echo Searching for lua54.dll...
+        for /r "%WIRESHARK_PATH%" %%f in (lua54.dll) do (
+            set "LUA_DLL=%%f"
+            goto :found_dll
+        )
+        echo ERROR: lua54.dll not found!
+        exit /b 1
         
-        if (-not (Test-Path $luaDll)) {
-            Write-Host "lua54.dll not found at expected location, searching..."
-            $luaDll = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua54.dll" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
-            Write-Host "  Found at: $luaDll"
-        }
+        :found_dll
+        echo Found Lua DLL: %LUA_DLL%
         
-        # Generate .lib from .dll using MSVC tools
-        $luaLib = "$env:TEMP\lua54.lib"
-        Write-Host "Generating lua54.lib from lua54.dll..."
+        REM Setup MSVC environment
+        echo Setting up MSVC environment...
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
         
-        # Extract exports and create .lib
-        $dllDir = Split-Path $luaDll
-        Push-Location $dllDir
-        dumpbin /exports lua54.dll > "$env:TEMP\exports.txt"
+        REM Generate .lib from .dll
+        set "LUA_LIB=%TEMP%\lua54.lib"
+        echo Generating lua54.lib from lua54.dll...
         
-        # Create .def file from exports
-        $defFile = "$env:TEMP\lua54.def"
-        "LIBRARY lua54" | Out-File $defFile -Encoding ASCII
-        "EXPORTS" | Out-File $defFile -Append -Encoding ASCII
-        Get-Content "$env:TEMP\exports.txt" | Select-String "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\w+)" | ForEach-Object {
-            $_.Matches[0].Groups[1].Value | Out-File $defFile -Append -Encoding ASCII
-        }
+        REM Extract exports
+        dumpbin /exports "%LUA_DLL%" > "%TEMP%\exports.txt"
         
-        # Generate .lib from .def
-        lib /def:$defFile /out:$luaLib /machine:x64
-        Pop-Location
+        REM Create .def file (simple approach - export all lua* functions)
+        echo LIBRARY lua54 > "%TEMP%\lua54.def"
+        echo EXPORTS >> "%TEMP%\lua54.def"
+        for /f "tokens=4" %%a in ('findstr /r "^[[:space:]]*[0-9].*lua" "%TEMP%\exports.txt"') do (
+            echo %%a >> "%TEMP%\lua54.def"
+        )
         
-        Write-Host "Setting environment variables:"
-        Write-Host "  LUA_INCLUDE=$luaInclude"
-        Write-Host "  LUA_LIB=$luaLib"
+        REM Generate .lib from .def
+        lib /def:"%TEMP%\lua54.def" /out:"%LUA_LIB%" /machine:x64
         
-        echo "LUA_INCLUDE=$luaInclude" >> $env:GITHUB_ENV
-        echo "LUA_LIB=$luaLib" >> $env:GITHUB_ENV
+        echo.
+        echo Environment variables:
+        echo   LUA_INCLUDE=%LUA_INCLUDE%
+        echo   LUA_LIB=%LUA_LIB%
+        
+        REM Write to GitHub environment
+        echo LUA_INCLUDE=%LUA_INCLUDE%>> %GITHUB_ENV%
+        echo LUA_LIB=%LUA_LIB%>> %GITHUB_ENV%
         
     - name: Build Go shared library
       run: |
