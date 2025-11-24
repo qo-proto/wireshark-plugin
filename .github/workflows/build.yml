@@ -135,7 +135,7 @@ jobs:
         echo Building qotp_decrypt.dll...
         echo Using Lua include: %LUA_INCLUDE%
         echo Using Lua lib: %LUA_LIB%
-        cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_INCLUDE%" /link "%LUA_LIB%" User32.lib /OUT:qotp_decrypt.dll
+        cl /LD /O2 /MT /TC qotp_decrypt.c /I"%LUA_INCLUDE%" /link "%LUA_LIB%" User32.lib /OUT:qotp_decrypt.dll
         echo.
         echo Checking qotp_decrypt.dll dependencies...
         dumpbin /dependents qotp_decrypt.dll
