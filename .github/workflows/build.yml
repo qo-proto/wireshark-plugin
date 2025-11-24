@@ -112,12 +112,18 @@ jobs:
             goto :found_include
           )
           REM Debug output
-          echo Directory listing for C:\Program Files (x86)\Lua:
-          dir "C:\Program Files (x86)\Lua" /s /b
-          echo Directory listing for C:\Program Files\Lua:
-          dir "C:\Program Files\Lua" /s /b
-          echo Directory listing for C:\ProgramData\chocolatey\lib\lua:
-          dir "C:\ProgramData\chocolatey\lib\lua" /s /b
+          if exist "C:\Program Files (x86)\Lua" (
+            echo Directory listing for C:\Program Files (x86)\Lua:
+            dir "C:\Program Files (x86)\Lua" /s /b
+          )
+          if exist "C:\Program Files\Lua" (
+            echo Directory listing for C:\Program Files\Lua:
+            dir "C:\Program Files\Lua" /s /b
+          )
+          if exist "C:\ProgramData\chocolatey\lib\lua" (
+            echo Directory listing for C:\ProgramData\chocolatey\lib\lua:
+            dir "C:\ProgramData\chocolatey\lib\lua" /s /b
+          )
         )
         
         if "%LUA_FOUND%"=="0" (
