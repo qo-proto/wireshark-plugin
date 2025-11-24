@@ -166,28 +166,27 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     
-      shell: pwsh
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Checkout qotp dependency
+      uses: actions/checkout@v4
+      with:
+        repository: qo-proto/qotp
+        path: qotp
+        
+    - name: Checkout qh dependency
+      uses: actions/checkout@v4
+      with:
+        repository: qo-proto/qh
+        path: qh
+      
+    - name: Add pcap.go to qotp
       run: |
-        Write-Host "Locating Wireshark Lua libraries..."
-        $wiresharkPath = "C:\Program Files\Wireshark"
-        $luaHeader = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua.h" | Select-Object -First 1
-        if (-not $luaHeader) {
-          Write-Host "ERROR: lua.h not found!"
-          exit 1
-        }
-        $luaInclude = $luaHeader.DirectoryName
-        Write-Host "Found Lua include: $luaInclude"
-        $luaDll = Get-ChildItem -Path $wiresharkPath -Recurse -Filter "lua54.dll" | Select-Object -First 1
-        if (-not $luaDll) {
-          Write-Host "ERROR: lua54.dll not found!"
-          exit 1
-        }
-        Write-Host "Found Lua DLL: $($luaDll.FullName)"
-        $luaLib = Join-Path $luaDll.DirectoryName "lua54.lib"
-        Write-Host "Using Lua LIB: $luaLib"
-        # Set LUA_INCLUDE to the directory containing lua.h
-        echo "LUA_INCLUDE=$luaInclude" | Out-File -FilePath $env:GITHUB_ENV -Append
-        echo "LUA_LIB=$luaLib" | Out-File -FilePath $env:GITHUB_ENV -Append
+        cp qotp_pcap_wrapper.go qotp/pcap.go
+      
+    - name: Update module paths for CI
       run: |
         sed -i 's|\.\./qh|./qh|g; s|\.\./qotp|./qotp|g' go.mod
       
