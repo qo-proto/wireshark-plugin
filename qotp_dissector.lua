@@ -7,13 +7,21 @@ local info = debug.getinfo(1, "S")
 local script_path = info.source:match("@(.+)")
 local script_dir = script_path and script_path:match("(.+)[/\\][^/\\]+$")
 
+-- Detect platform
+local is_windows = package.config:sub(1,1) == '\\'
+local path_sep = is_windows and "\\" or "/"
+local lib_ext = is_windows and ".dll" or ".so"
+
 if script_dir then
     -- Add to package.cpath for Lua module loading
-    package.cpath = script_dir .. "\\?.dll;" .. package.cpath
+    package.cpath = script_dir .. path_sep .. "?" .. lib_ext .. ";" .. package.cpath
     
-    -- Pre-load qotp_crypto.dll using absolute path so Windows can find it
-    local qotp_crypto_path = script_dir .. "\\qotp_crypto.dll"
+    -- Pre-load qotp_crypto library using absolute path
+    local qotp_crypto_path = script_dir .. path_sep .. "qotp_crypto" .. lib_ext
     package.loadlib(qotp_crypto_path, "*")
+    
+    print("Script directory: " .. script_dir)
+    print("Package cpath: " .. package.cpath)
 end
 
 print("Loading qotp_decrypt module...")
