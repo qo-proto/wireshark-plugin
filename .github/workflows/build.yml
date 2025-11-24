@@ -49,15 +49,37 @@ jobs:
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
       
-    - name: Setup Lua
+    - name: Download Wireshark Lua libraries (same as user's Wireshark installation)
       run: |
-        vcpkg install lua:x64-windows-static
-        echo "LUA_DIR=C:\vcpkg\installed\x64-windows-static" >> $env:GITHUB_ENV
-      
-    - name: Verify Lua installation
-      run: |
-        Write-Host "Checking Lua installation..."
-        Get-ChildItem -Path "C:\vcpkg\installed\x64-windows-static" -Recurse | Where-Object { $_.Name -like "*lua*" }
+        Write-Host "Downloading Wireshark development libraries..."
+        $luaDir = "C:\wireshark-lua"
+        New-Item -ItemType Directory -Force -Path $luaDir | Out-Null
+        
+        # Download the exact same Lua library package that Wireshark uses
+        # This is from https://www.wireshark.org/download/win64/WiresharkLibs.html
+        $luaLibUrl = "https://www.wireshark.org/download/win64/all-versions/lua-5.4.6-unicode-win64-vc14.zip"
+        Write-Host "Downloading from: $luaLibUrl"
+        Invoke-WebRequest -Uri $luaLibUrl -OutFile "$luaDir\lua.zip"
+        
+        Write-Host "Extracting Lua libraries..."
+        Expand-Archive -Path "$luaDir\lua.zip" -DestinationPath $luaDir -Force
+        
+        # Find the extracted directory
+        $luaExtracted = Get-ChildItem -Path $luaDir -Directory | Where-Object { $_.Name -like "lua-*" } | Select-Object -First 1
+        
+        Write-Host "Lua extracted to: $($luaExtracted.FullName)"
+        Write-Host "Contents:"
+        Get-ChildItem -Path $luaExtracted.FullName -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+        
+        $luaInclude = "$($luaExtracted.FullName)\include"
+        $luaLib = "$($luaExtracted.FullName)\lua54.lib"
+        
+        Write-Host "Setting environment variables:"
+        Write-Host "  LUA_INCLUDE=$luaInclude"
+        Write-Host "  LUA_LIB=$luaLib"
+        
+        echo "LUA_INCLUDE=$luaInclude" >> $env:GITHUB_ENV
+        echo "LUA_LIB=$luaLib" >> $env:GITHUB_ENV
         
     - name: Build Go shared library
       run: |
@@ -70,9 +92,9 @@ jobs:
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
         echo Building qotp_decrypt.dll...
-        echo Using LUA_DIR=%LUA_DIR%
-        dir "%LUA_DIR%\lib"
-        cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_DIR%\include" /link "%LUA_DIR%\lib\lua.lib" User32.lib /OUT:qotp_decrypt.dll
+        echo Using Lua include: %LUA_INCLUDE%
+        echo Using Lua lib: %LUA_LIB%
+        cl /LD /O2 /MT /TP qotp_decrypt.c /I"%LUA_INCLUDE%" /link "%LUA_LIB%" User32.lib /OUT:qotp_decrypt.dll
         echo.
         echo Checking qotp_decrypt.dll dependencies...
         dumpbin /dependents qotp_decrypt.dll
