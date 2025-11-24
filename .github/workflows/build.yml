@@ -72,22 +72,16 @@ jobs:
         Write-Host "Installing Wireshark to get correct Lua libraries..."
         choco install wireshark -y --no-progress
 
-    - name: Install Lua (Chocolatey)
-      run: |
-        Write-Host "Installing Lua via Chocolatey..."
-        choco install lua -y --no-progress
         
     - name: Find Wireshark Lua libraries
       shell: cmd
       run: |
         @echo off
         echo Locating Wireshark Lua libraries...
-        set "WIRESHARK_PATH=C:\Program Files\Wireshark"
         set "LUA_SDK_ROOT=%GITHUB_WORKSPACE%\lua54-sdk\lua-5.4.6-unicode-win64-vc14"
         set "LUA_PATH=%LUA_SDK_ROOT%\include"
         set "LUA_INCLUDE=%LUA_SDK_ROOT%\include"
         set "LUA_LIB=%LUA_SDK_ROOT%\lua54.lib"
-        set "LUA_FOUND=1"
         
         REM Search for lua54.dll in Wireshark
         echo Searching for lua54.dll...
@@ -143,34 +137,16 @@ jobs:
       run: |
         Write-Host "Building qotp_decrypt.dll..."
         $currentDir = Get-Location
-        # Explicitly set LUA_LIB to the correct extracted SDK path
         $env:LUA_LIB = "$env:GITHUB_WORKSPACE\lua54-sdk\lua-5.4.6-unicode-win64-vc14\lua54.lib"
-        Write-Host "Using Lua include: $env:LUA_INCLUDE"
-        Write-Host "Using Lua lib: $env:LUA_LIB"
-        Write-Host "Lua Path directory: $env:LUA_PATH"
-        Write-Host "Listing files in Lua SDK root:"
-        Get-ChildItem -Path "$env:GITHUB_WORKSPACE\lua54-sdk" -Recurse | Write-Host
-        Write-Host "Listing files in Lua include:"
-        if ($env:LUA_INCLUDE -and (Test-Path $env:LUA_INCLUDE)) { Get-ChildItem -Path $env:LUA_INCLUDE | Write-Host } else { Write-Host "LUA_INCLUDE not found!" }
-        Write-Host "Listing files in Lua SDK root for .lib:"
-        Get-ChildItem -Path "$env:GITHUB_WORKSPACE\lua54-sdk\lua-5.4.6-unicode-win64-vc14" | Write-Host
         $vcvars = '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"'
         $clCmd = "cl /LD /O2 /MT /TC qotp_decrypt.c /I`"$env:LUA_INCLUDE`" /link `"$env:LUA_LIB`" User32.lib /OUT:qotp_decrypt.dll"
-        Write-Host "Linker command: $clCmd"
         $cmd = "$vcvars & cd /d `"$currentDir`" & $clCmd"
         cmd /c $cmd
         if (!(Test-Path qotp_decrypt.dll)) {
           Write-Host "ERROR: qotp_decrypt.dll was not created!" -ForegroundColor Red
           exit 1
         }
-        Write-Host "qotp_decrypt.dll created. Checking dependencies..."
-        $dumpbin = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC" -Directory | Sort-Object Name -Descending | Select-Object -First 1 | ForEach-Object { Join-Path $_.FullName "bin\Hostx64\x64\dumpbin.exe" }
-        if (Test-Path $dumpbin) {
-          & $dumpbin /dependents qotp_decrypt.dll
-          & $dumpbin /dependents qotp_crypto.dll
-        } else {
-          Write-Host "dumpbin.exe not found! Skipping dependency check."
-        }
+        Write-Host "qotp_decrypt.dll created."
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
