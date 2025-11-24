@@ -71,11 +71,6 @@ jobs:
         
         REM Search for lua.h in Wireshark
         echo Searching for lua.h in Wireshark...
-        for /r "%WIRESHARK_PATH%" %%f in (lua.h) do (
-          set "LUA_INCLUDE=%%~dpf"
-          set "LUA_FOUND=1"
-          goto :found_include
-        )
         
         REM If not found, install Lua via Chocolatey and search there
         if "%LUA_FOUND%"=="0" (
