@@ -143,6 +143,8 @@ jobs:
       run: |
         Write-Host "Building qotp_decrypt.dll..."
         $currentDir = Get-Location
+        # Explicitly set LUA_LIB to the correct extracted SDK path
+        $env:LUA_LIB = "$env:GITHUB_WORKSPACE\lua54-sdk\lua-5.4.6-unicode-win64-vc14\lua54.lib"
         Write-Host "Using Lua include: $env:LUA_INCLUDE"
         Write-Host "Using Lua lib: $env:LUA_LIB"
         Write-Host "Lua Path directory: $env:LUA_PATH"
