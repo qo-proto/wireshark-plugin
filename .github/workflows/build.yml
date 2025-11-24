@@ -129,7 +129,7 @@ jobs:
       run: |
         if ($env:LUA_INCLUDE -and (Test-Path $env:LUA_INCLUDE)) {
           Write-Host "Listing files in Lua include directory: $env:LUA_INCLUDE"
-          Get-ChildItem -Path $env:LUA_INCLUDE -Recurse | Write-Host
+          Get-ChildItem -Path $env:LUA_PATH -Recurse | Write-Host
         } else {
           Write-Host "LUA_INCLUDE is not set or directory does not exist: $env:LUA_INCLUDE"
         }
