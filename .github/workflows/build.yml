@@ -77,51 +77,14 @@ jobs:
       shell: cmd
       run: |
         @echo off
-        echo Locating Wireshark Lua libraries...
+        echo Using Wireshark Lua SDK only, skipping legacy DLL search.
         set "LUA_SDK_ROOT=%GITHUB_WORKSPACE%\lua54-sdk\lua-5.4.6-unicode-win64-vc14"
         set "LUA_PATH=%LUA_SDK_ROOT%\include"
         set "LUA_INCLUDE=%LUA_SDK_ROOT%\include"
         set "LUA_LIB=%LUA_SDK_ROOT%\lua54.lib"
-        
-        REM Search for lua54.dll in Wireshark
-        echo Searching for lua54.dll...
-        for /r "%WIRESHARK_PATH%" %%f in (lua54.dll) do (
-          set "LUA_DLL=%%f"
-          goto :found_dll
-        )
-        echo ERROR: lua54.dll not found!
-        exit /b 1
-        
-        :found_dll
-        echo Found Lua DLL: %LUA_DLL%
-        
-        REM Setup MSVC environment
-        echo Setting up MSVC environment...
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        
-        REM Generate .lib from .dll
-        set "LUA_LIB=%TEMP%\lua54.lib"
-        echo Generating lua54.lib from lua54.dll...
-        
-        REM Extract exports
-        dumpbin /exports "%LUA_DLL%" > "%TEMP%\exports.txt"
-        
-        REM Create .def file (simple approach - export all lua* functions)
-        echo LIBRARY lua54 > "%TEMP%\lua54.def"
-        echo EXPORTS >> "%TEMP%\lua54.def"
-        for /f "tokens=4" %%a in ('findstr /r "^[[:space:]]*[0-9].*lua" "%TEMP%\exports.txt"') do (
-          echo %%a >> "%TEMP%\lua54.def"
-        )
-        
-        REM Generate .lib from .def
-        lib /def:"%TEMP%\lua54.def" /out:"%LUA_LIB%" /machine:x64
-        
-        echo.
         echo Environment variables:
         echo   LUA_INCLUDE=%LUA_INCLUDE%
         echo   LUA_LIB=%LUA_LIB%
-        
-        REM Write to GitHub environment
         echo LUA_PATH=%LUA_PATH%>> %GITHUB_ENV%
         echo LUA_INCLUDE=%LUA_INCLUDE%>> %GITHUB_ENV%
         echo LUA_LIB=%LUA_LIB%>> %GITHUB_ENV%
