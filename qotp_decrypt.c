@@ -88,6 +88,7 @@ static int lua_decrypt_data(lua_State* L) {
     
     size_t len;
     const char* encrypted = luaL_checklstring(L, 1, &len);
+    printf("[qotp_decrypt.c] lua_decrypt_data called: len=%zu, encrypted=%p\n", len, (void*)encrypted);
     
     unsigned long long conn_id;
     const char* conn_id_str = NULL;
