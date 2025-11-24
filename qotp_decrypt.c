@@ -88,7 +88,15 @@ static int lua_decrypt_data(lua_State* L) {
     
     size_t len;
     const char* encrypted = luaL_checklstring(L, 1, &len);
-    printf("[qotp_decrypt.c] lua_decrypt_data called: len=%zu, encrypted=%p\n", len, (void*)encrypted);
+    printf("[qotp_decrypt.c] lua_decrypt_data called: len=%zu, encrypted=%p, lua_gettop=%d\n", 
+           len, (void*)encrypted, lua_gettop(L));
+    
+    // Validate minimum packet size
+    if (len == 0) {
+        printf("[qotp_decrypt.c] ERROR: len=0, refusing to decrypt empty packet\n");
+        lua_pushnil(L);
+        return 1;
+    }
     
     unsigned long long conn_id;
     const char* conn_id_str = NULL;
