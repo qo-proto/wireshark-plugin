@@ -124,14 +124,14 @@ jobs:
         $env:CGO_ENABLED = "1"
         go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
 
-    - name: List files in Lua include directory
+    - name: List files in Lua Path directory
       shell: pwsh
       run: |
-        if ($env:LUA_INCLUDE -and (Test-Path $env:LUA_INCLUDE)) {
-          Write-Host "Listing files in Lua include directory: $env:LUA_INCLUDE"
+        if ($env:LUA_PATH -and (Test-Path $env:LUA_PATH)) {
+          Write-Host "Listing files in Lua include directory: $env:LUA_PATH"
           Get-ChildItem -Path $env:LUA_PATH -Recurse | Write-Host
         } else {
-          Write-Host "LUA_INCLUDE is not set or directory does not exist: $env:LUA_INCLUDE"
+          Write-Host "LUA_PATH is not set or directory does not exist: $env:LUA_PATH"
         }
         
     - name: Build C Lua module
