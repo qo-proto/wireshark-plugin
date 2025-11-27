@@ -12,14 +12,14 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #ifdef _WIN32
-#include <windows.h>
+#include <windows.h> //Windows dynamic loading
 #define SHARED_LIB_EXT ".dll"
 #define LOAD_LIBRARY(name) LoadLibraryA(name)
 #define GET_PROC_ADDRESS(handle, name) GetProcAddress(handle, name)
 #define SHOW_ERROR(msg) MessageBox(0, msg, "Error", MB_ICONERROR)
 typedef HMODULE LibHandle;
 #else
-#include <dlfcn.h>
+#include <dlfcn.h> //Linux dynamic loading
 #define SHARED_LIB_EXT ".so"
 #define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)
 #define GET_PROC_ADDRESS(handle, name) dlsym(handle, name)

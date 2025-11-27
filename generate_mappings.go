@@ -4,9 +4,7 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/qo-proto/qh"
@@ -45,21 +43,17 @@ func generateMappings() string {
 			sb.WriteString(fmt.Sprintf("    [%d] = \"%s\",\n", i, method))
 		}
 	}
+
 	sb.WriteString("}\n\nlocal compact_to_status = {\n")
 
 	codes := make([]uint8, 0, len(qh.StatusToCompact))
 	for _, c := range qh.StatusToCompact {
 		codes = append(codes, c)
 	}
-	sort.Slice(codes, func(i, j int) bool { return codes[i] < codes[j] })
 
 	for _, compact := range codes {
 		status := qh.CompactToStatus[compact]
-		if text := http.StatusText(status); text != "" {
-			sb.WriteString(fmt.Sprintf("    [%d] = %d,  -- %s\n", compact, status, text))
-		} else {
-			sb.WriteString(fmt.Sprintf("    [%d] = %d,\n", compact, status))
-		}
+		sb.WriteString(fmt.Sprintf("    [%d] = %d,\n", compact, status))
 	}
 	sb.WriteString("}")
 	return sb.String()
