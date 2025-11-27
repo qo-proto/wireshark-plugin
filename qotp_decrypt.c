@@ -107,53 +107,45 @@ static int load_dll() {
     return 1;
 }
 
+
+// Helper: Parse connection ID from Lua stack (string hex or integer)
+static int parse_conn_id(lua_State* L, int idx, unsigned long long* conn_id) {
+    if (lua_type(L, idx) == LUA_TSTRING) {
+        const char* conn_id_str = luaL_checkstring(L, idx);
+        if (sscanf(conn_id_str, "%llx", conn_id) != 1) {
+            return 0;
+        }
+    } else {
+        *conn_id = luaL_checkinteger(L, idx);
+    }
+    return 1;
+}
+
 static int lua_decrypt_data(lua_State* L) {
     if (!load_dll()) {
-        printf("[qotp_decrypt.c] Failed to load DLL\n");
         lua_pushnil(L);
         return 1;
     }
-    
     size_t len;
     const char* encrypted = luaL_checklstring(L, 1, &len);
-    
     unsigned long long conn_id;
-    const char* conn_id_str = NULL;
-    if (lua_type(L, 2) == LUA_TSTRING) {
-        conn_id_str = luaL_checkstring(L, 2);
-        if (sscanf(conn_id_str, "%llx", &conn_id) != 1) {
-            printf("[qotp_decrypt.c] Failed to parse conn_id from hex string: %s\n", conn_id_str);
-            lua_pushnil(L);
-            return 1;
-        }
-        printf("[qotp_decrypt.c] Parsed conn_id: %s -> %llu (0x%llx)\n", conn_id_str, conn_id, conn_id);
-    } else {
-        conn_id = luaL_checkinteger(L, 2);
-        printf("[qotp_decrypt.c] Got conn_id as integer: %llu (0x%llx)\n", conn_id, conn_id);
-    }
-    
-    char* output = (char*)malloc(65536);
-    if (!output) {
-        printf("[qotp_decrypt.c] malloc failed\n");
+    if (!parse_conn_id(L, 2, &conn_id)) {
         lua_pushnil(L);
         return 1;
     }
-    
+    char* output = (char*)malloc(65536);
+    if (!output) {
+        lua_pushnil(L);
+        return 1;
+    }
     int is_sender = lua_toboolean(L, 3);
     int epoch = luaL_checkinteger(L, 4);
-    printf("[qotp_decrypt.c] Calling decrypt: len=%d, conn_id=%llu, is_sender=%d, epoch=%d\n", 
-           (int)len, conn_id, is_sender, epoch);
-    
     int result = decrypt(encrypted, (int)len, conn_id, is_sender, epoch, output, 65536);
-    
-    printf("[qotp_decrypt.c] Decrypt result: %d\n", result);
-    
     if (result < 0) {
         free(output);
         lua_pushnil(L);
         return 1;
     }
-    
     lua_pushlstring(L, output, result);
     free(output);
     return 1;
@@ -164,27 +156,13 @@ static int lua_set_key(lua_State* L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    
     unsigned long long conn_id;
-    const char* conn_id_str = NULL;
-    if (lua_type(L, 1) == LUA_TSTRING) {
-        conn_id_str = luaL_checkstring(L, 1);
-        if (sscanf(conn_id_str, "%llx", &conn_id) != 1) {
-            printf("[qotp_decrypt.c] set_key: Failed to parse conn_id from hex string: %s\n", conn_id_str);
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-        printf("[qotp_decrypt.c] set_key: %s -> %llu (0x%llx)\n", conn_id_str, conn_id, conn_id);
-    } else {
-        conn_id = luaL_checkinteger(L, 1);
-        printf("[qotp_decrypt.c] set_key: Got conn_id as integer: %llu (0x%llx)\n", conn_id, conn_id);
+    if (!parse_conn_id(L, 1, &conn_id)) {
+        lua_pushboolean(L, 0);
+        return 1;
     }
-    
     const char* secret = luaL_checkstring(L, 2);
-    printf("[qotp_decrypt.c] set_key: secret_len=%d\n", (int)strlen(secret));
     int result = set_key(conn_id, secret);
-    printf("[qotp_decrypt.c] set_key: result=%d\n", result);
-    
     lua_pushboolean(L, result == 0);
     return 1;
 }
