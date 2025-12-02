@@ -49,37 +49,49 @@ print("qotp_decrypt test complete")
 local qotp_proto = Proto("QOTP", "Quick UDP Transport Protocol")
 
 -- Define fields for QOTP protocol (must be defined before using them)
-local f_msg_type = ProtoField.string("qotp.msg_type", "Message Type")
-local f_version = ProtoField.uint8("qotp.version", "Version", base.DEC)
-local f_conn_id = ProtoField.uint64("qotp.conn_id", "Connection ID", base.HEX)
-local f_encrypted = ProtoField.bytes("qotp.encrypted", "Encrypted Data")
-local f_decrypted = ProtoField.bytes("qotp.decrypted", "Decrypted Data")
-local f_header = ProtoField.bytes("qotp.header", "Header")
+local f_qotp_msg_type = ProtoField.string("qotp.msg_type", "Message Type")
+local f_qotp_version = ProtoField.uint8("qotp.version", "Version", base.DEC)
+local f_qotp_conn_id = ProtoField.uint64("qotp.conn_id", "Connection ID", base.HEX)
+local f_qotp_encrypted = ProtoField.bytes("qotp.encrypted", "Encrypted Data")
+local f_qotp_decrypted = ProtoField.bytes("qotp.decrypted", "Decrypted Data")
+local f_qotp_header = ProtoField.bytes("qotp.header", "Header")
 
 -- Define fields for QH protocol (inner protocol)
 local f_qh_version = ProtoField.uint8("qh.version", "QH Version", base.DEC)
 local f_qh_type = ProtoField.string("qh.type", "Type")
 local f_qh_method = ProtoField.string("qh.method", "Operation")
 local f_qh_status = ProtoField.uint16("qh.status", "Status Code", base.DEC)
+local f_qh_host_length = ProtoField.uint16("qh.hostlength", "Host Length", base.DEC)
 local f_qh_host = ProtoField.string("qh.host", "Host")
+local f_qh_path_length = ProtoField.uint16("qh.pathlength", "Path Length", base.DEC)
 local f_qh_path = ProtoField.string("qh.path", "Path")
-local f_qh_body = ProtoField.bytes("qh.body", "Body")
+local f_qh_header_length = ProtoField.uint16("qh.headerlength", "Header Length", base.DEC)
+local f_qh_header = ProtoField.string("qh.header", "Header")
+local f_qh_body_length = ProtoField.uint16("qh.bodylength", "Body Length", base.DEC)
+local f_qh_body = ProtoField.string("qh.body", "Body")
+local f_qh_temp_big = ProtoField.uint16("qh.tempbig", "Remaining Body Length", base.DEC)
 
 -- Register all fields with the protocol
 qotp_proto.fields = {
-    f_msg_type,
-    f_version,
-    f_conn_id,
-    f_encrypted,
-    f_decrypted,
-    f_header,
+    f_qotp_msg_type,
+    f_qotp_version,
+    f_qotp_conn_id,
+    f_qotp_encrypted,
+    f_qotp_decrypted,
+    f_qotp_header,
     f_qh_version,
     f_qh_type,
     f_qh_method,
     f_qh_status,
+    f_qh_host_length,
     f_qh_host,
+    f_qh_path_length,
     f_qh_path,
-    f_qh_body
+    f_qh_header_length,
+    f_qh_header,
+    f_qh_body_length,
+    f_qh_body,
+    f_qh_temp_big
 }
 
 qotp_proto.prefs.keylog_file = Pref.string("Keylog file", "", "Path to QOTP keylog file")
@@ -293,12 +305,11 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
     -- Request: destination port 8090 (client -> server)
     -- Response: source port 8090 (server -> client)
     local is_request = (pinfo.dst_port == 8090)
-    
-    local method_bits = bit.band(bit.rshift(first_byte, 3), 0x07)  -- bits 5-3
-    
+        
     offset = offset + 1
     
     if is_request then
+        local method_bits = bit.band(bit.rshift(first_byte, 3), 0x07)  -- bits 5-3
         -- Parse Request
         qh_tree:add(f_qh_type, "Request"):set_generated()
         local method_name = qh_methods[method_bits] or string.format("Unknown(%d)", method_bits)
@@ -311,6 +322,7 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
             offset = offset + varint_bytes
             if offset + host_len <= #decrypted_data then
                 local host = decrypted_data:sub(offset, offset + host_len - 1)
+                qh_tree:add(f_qh_host_length, host_len):set_generated()
                 qh_tree:add(f_qh_host, host):set_generated()
                 offset = offset + host_len
             end
@@ -322,6 +334,7 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
             offset = offset + varint_bytes
             if offset + path_len <= #decrypted_data then
                 local path = decrypted_data:sub(offset, offset + path_len - 1)
+                qh_tree:add(f_qh_path_length, path_len):set_generated()
                 qh_tree:add(f_qh_path, path):set_generated()
                 pinfo.cols.info:append(string.format(" %s]", path))
                 offset = offset + path_len
@@ -331,7 +344,43 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
         else
             pinfo.cols.info:append("]")
         end
-        
+
+        local header_len, varint_bytes = read_varint(decrypted_data, offset)
+        if header_len and varint_bytes > 0 then
+            offset = offset + varint_bytes
+            if offset + header_len <= #decrypted_data then
+                local header = decrypted_data:sub(offset, offset + header_len -1)
+                qh_tree:add(f_qh_header_length, header_len):set_generated()
+                qh_tree:add(f_qh_header, header):set_generated()
+                offset = offset + header_len
+            end
+        end
+
+        local body_len, varint_bytes = read_varint(decrypted_data, offset)
+        if body_len and varint_bytes > 0 then
+            offset = offset + varint_bytes
+            if offset < #decrypted_data then
+                local available = #decrypted_data - offset + 1
+                if body_len <= available then
+                    local body = decrypted_data:sub(offset, offset + body_len - 1)
+                    qh_tree:add(f_qh_body_length, body_len):set_generated()
+                    qh_tree:add(f_qh_body, body):set_generated()
+                    offset = offset + body_len
+                else
+                    local body = decrypted_data:sub(offset)
+                    local remaining = body_len - available
+                    qh_tree:add(f_qh_body_length, body_len):set_generated()
+                    qh_tree:add(f_qh_body, body .. " [truncated]"):set_generated()
+                    qh_tree:add(f_qh_temp_big, remaining):set_generated()
+                    offset = #decrypted_data + 1
+                end
+            else
+                qh_tree:add(f_qh_body_length, body_len):set_generated()
+                qh_tree:add(f_qh_body, "No Body (truncated or missing)"):set_generated()
+            end
+        end
+
+
     else
         -- Parse Response
         qh_tree:add(f_qh_type, "Response"):set_generated()
@@ -374,11 +423,11 @@ function qotp_proto.dissector(buffer, pinfo, tree)
     
     local msg_type_str = msg_type_names[msg_type] or "Unknown"
     
-    subtree:add(f_msg_type, buffer(0, 1), msg_type_str)
-    subtree:add(f_version, buffer(0, 1), version)
+    subtree:add(f_qotp_msg_type, buffer(0, 1), msg_type_str)
+    subtree:add(f_qotp_version, buffer(0, 1), version)
     
     if msg_type ~= 0 and buffer:len() >= 9 then
-        subtree:add_le(f_conn_id, buffer(1, 8))
+        subtree:add_le(f_qotp_conn_id, buffer(1, 8))
         local conn_id_hex = buffer_to_hex_string(buffer, 1, 8)
         pinfo.cols.info = msg_type_str .. " (" .. conn_id_hex .. ")"
     else
@@ -386,7 +435,7 @@ function qotp_proto.dissector(buffer, pinfo, tree)
     end
     
     if msg_type == 4 and buffer:len() > 9 then
-        subtree:add(f_encrypted, buffer(9, buffer:len() - 9))
+        subtree:add(f_qotp_encrypted, buffer(9, buffer:len() - 9))
         local conn_id_hex = buffer_to_hex_string(buffer, 1, 8)
         
         -- Auto-reload keylog on first pass through packets
@@ -430,7 +479,7 @@ function qotp_proto.dissector(buffer, pinfo, tree)
             
             if decrypted then
                 local decrypted_tvb = ByteArray.new(decrypted, true):tvb("Decrypted Data")
-                subtree:add(f_decrypted, decrypted_tvb():range()):append_text(string.format(" (E:%d S:%s)", used_epoch, used_sender))
+                subtree:add(f_qotp_decrypted, decrypted_tvb():range()):append_text(string.format(" (E:%d S:%s)", used_epoch, used_sender))
                 parse_qh_protocol(decrypted, subtree, pinfo)
                 pinfo.cols.info:append(" [Dec]")
             else
@@ -440,7 +489,7 @@ function qotp_proto.dissector(buffer, pinfo, tree)
             subtree:add_expert_info(PI_DECRYPTION, PI_NOTE, "No key")
         end
     elseif buffer:len() > 9 then
-        subtree:add(f_encrypted, buffer(9, buffer:len() - 9))
+        subtree:add(f_qotp_encrypted, buffer(9, buffer:len() - 9))
     end
 end
 
