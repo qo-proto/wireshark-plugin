@@ -389,14 +389,51 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
         
         qh_tree:add(f_qh_status, http_status):set_generated()
         pinfo.cols.info:append(string.format(" [Status: %d]", http_status))
-    end
-    
-    -- Find body (after ETX marker 0x03)
-    local etx_pos = decrypted_data:find("\x03", offset, true)
-    if etx_pos and etx_pos < #decrypted_data then
-        local body_len = #decrypted_data - etx_pos
-        if body_len > 0 then
-            qh_tree:add(f_qh_body, body_len .. " bytes"):set_generated()
+        
+        -- Parse headers (varint length + header data)
+        local header_len, varint_bytes = read_varint(decrypted_data, offset)
+        if header_len and varint_bytes > 0 then
+            offset = offset + varint_bytes
+            if offset + header_len <= #decrypted_data then
+                local header = decrypted_data:sub(offset, offset + header_len - 1)
+                qh_tree:add(f_qh_header_length, header_len):set_generated()
+                qh_tree:add(f_qh_header, header):set_generated()
+                offset = offset + header_len
+            end
+        end
+        
+        -- Parse body (varint length + body data)
+        local body_len, varint_bytes = read_varint(decrypted_data, offset)
+        if body_len and varint_bytes > 0 then
+            offset = offset + varint_bytes
+            if offset < #decrypted_data then
+                local available = #decrypted_data - offset + 1
+                if body_len <= available then
+                    local body = decrypted_data:sub(offset, offset + body_len - 1)
+                    qh_tree:add(f_qh_body_length, body_len):set_generated()
+                    qh_tree:add(f_qh_body, body):set_generated()
+                    offset = offset + body_len
+                else
+                    local body = decrypted_data:sub(offset)
+                    local remaining = body_len - available
+                    qh_tree:add(f_qh_body_length, body_len):set_generated()
+                    qh_tree:add(f_qh_body, body .. " [truncated]"):set_generated()
+                    qh_tree:add(f_qh_temp_big, remaining):set_generated()
+                    
+                    -- On first pass, set up reassembly state for this connection
+                    if not pinfo.visited then
+                        body_reassembly_state[conn_id_hex] = {
+                            remaining_body_length = remaining,
+                            last_packet = pinfo.number
+                        }
+                    end
+                    
+                    offset = #decrypted_data + 1
+                end
+            else
+                qh_tree:add(f_qh_body_length, body_len):set_generated()
+                qh_tree:add(f_qh_body, "No Body (truncated or missing)"):set_generated()
+            end
         end
     end
 end
