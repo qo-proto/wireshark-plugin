@@ -2,7 +2,7 @@ module github.com/qo-proto/wireshark-plugin
 
 go 1.25.1
 
-require github.com/qo-proto/qotp v0.2.5
+require github.com/qo-proto/qotp v0.2.11
 
 require (
 	github.com/MatusOllah/slogcolor v1.7.0 // indirect
