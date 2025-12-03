@@ -65,6 +65,34 @@ RUN go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go && \
         /lua/windows/liblua.a \
         -static-libgcc \
         -static-libstdc++
+        
+ # -----------------------------
+ # OSXCross setup for macOS
+ # -----------------------------
+ RUN git clone https://github.com/tpoechtrager/osxcross /osxcross && \
+     cd /osxcross && \
+     wget -nc https://github.com/joseluisq/macosx-sdks/releases/download/14.5/MacOSX14.5.sdk.tar.xz && \
+     mv MacOSX14.5.sdk.tar.xz tarballs/ && \
+     UNATTENDED=yes OSX_VERSION_MIN=10.15 ./build.sh
+ 
+ ENV PATH="/osxcross/target/bin:$PATH"
+ ENV CC=o64-clang
+ ENV CXX=o64-clang++
+        
+# Build Lua for macOS (static)
+RUN cd /lua-src/lua-5.3.6/src && \
+    make clean && \
+    make macosx CC=o64-clang CFLAGS="-O2 -fPIC" && \
+    mkdir -p /lua/macos && \
+    cp *.h liblua.a /lua/macos/
+
+# macOS build (.dylib) with static Lua
+RUN CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+    go build -buildmode=c-shared -o libqotp_crypto.dylib qotp_export.go && \
+    o64-clang++ -shared -o qotp_decrypt.dylib qotp_decrypt.c \
+        -I/lua/macos \
+        /lua/macos/liblua.a \
+        -undefined dynamic_lookup
 
 # Output volume
 VOLUME ["/output"]
