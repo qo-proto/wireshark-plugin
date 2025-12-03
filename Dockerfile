@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     git \
     patch \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------
