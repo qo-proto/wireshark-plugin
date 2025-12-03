@@ -30,7 +30,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross /osxcross && \
 ENV PATH="/osxcross/target/bin:$PATH"
 ENV CC=o64-clang
 ENV CXX=o64-clang++
-    
+
 WORKDIR /build
 COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
 COPY mapping/ ./mapping/
@@ -61,9 +61,9 @@ RUN cd /lua-src/lua-5.3.6 && \
 # -----------------------------
 RUN go build -buildmode=c-shared -o libqotp_crypto.so qotp_export.go && \
     g++ -shared -fPIC -o qotp_decrypt.so qotp_decrypt.c \
-        -I/lua/linux \
-        /lua/linux/liblua.a \
-        -ldl
+    -I/lua/linux \
+    /lua/linux/liblua.a \
+    -ldl
 
 # -----------------------------
 # Build Lua for Windows (MinGW static)
@@ -79,11 +79,11 @@ RUN cd /lua-src/lua-5.3.6/src && \
 # -----------------------------
 RUN go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go && \
     x86_64-w64-mingw32-g++ -shared -o qotp_decrypt.dll qotp_decrypt.c \
-        -I/lua/windows \
-        /lua/windows/liblua.a \
-        -static-libgcc \
-        -static-libstdc++
-        
+    -I/lua/windows \
+    /lua/windows/liblua.a \
+    -static-libgcc \
+    -static-libstdc++
+
 # Build Lua for macOS (static)
 RUN cd /lua-src/lua-5.3.6/src && \
     make clean && \
@@ -95,10 +95,10 @@ RUN cd /lua-src/lua-5.3.6/src && \
 RUN CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
     go build -buildmode=c-shared -o libqotp_crypto.dylib qotp_export.go && \
     o64-clang++ -shared -o qotp_decrypt.dylib qotp_decrypt.c \
-        -I/lua/macos \
-        /lua/macos/liblua.a \
-        -undefined dynamic_lookup
+    -I/lua/macos \
+    /lua/macos/liblua.a \
+    -undefined dynamic_lookup
 
 
 VOLUME ["/output"]
-CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so qotp_crypto.dll qotp_decrypt.dll qotp_dissector.lua /output/"]
+CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so qotp_crypto.dll qotp_decrypt.dll libqotp_crypto.dylib qotp_decrypt.dylib qotp_dissector.lua /output/"]
