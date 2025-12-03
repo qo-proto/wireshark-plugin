@@ -3,7 +3,7 @@
 print("=== QOTP Dissector Loading ===")
 
 -- Detect platform
-local is_windows = package.config:sub(1,1) == '\\'
+local is_windows = package.config:sub(1, 1) == '\\'
 
 -- Get the directory where this script is located
 local info = debug.getinfo(1, "S")
@@ -18,11 +18,12 @@ if script_dir then
         local qotp_crypto_path = script_dir .. "\\qotp_crypto.dll"
         package.loadlib(qotp_crypto_path, "*")
     else
-        -- Linux: Load SO
+        -- Linux/macOS: Load .so
         package.cpath = script_dir .. "/?.so;" .. package.cpath
-        -- Pre-load libqotp_crypto.so using absolute path
-        local qotp_crypto_path = script_dir .. "/libqotp_crypto.so"
-        package.loadlib(qotp_crypto_path, "*")
+        -- Pre-load crypto lib using absolute path (C code uses relative path which won't work)
+        local is_macos = (io.popen("uname -s"):read("*l") or ""):match("Darwin") ~= nil
+        local crypto_lib = is_macos and "/libqotp_crypto.dylib" or "/libqotp_crypto.so"
+        package.loadlib(script_dir .. crypto_lib, "*")
     end
 end
 
@@ -155,19 +156,61 @@ end
 
 -- QH protocol mappings
 local qh_methods = {
-    [0] = "GET", [1] = "POST", [2] = "PUT", [3] = "PATCH",
-    [4] = "DELETE", [5] = "HEAD",
+    [0] = "GET",
+    [1] = "POST",
+    [2] = "PUT",
+    [3] = "PATCH",
+    [4] = "DELETE",
+    [5] = "HEAD",
 }
 
 local compact_to_status = {
-    [0] = 200, [1] = 404, [2] = 500, [3] = 302, [4] = 400, [5] = 403,
-    [6] = 401, [7] = 301, [8] = 304, [9] = 503, [10] = 201, [11] = 202,
-    [12] = 204, [13] = 206, [14] = 307, [15] = 308, [16] = 409, [17] = 410,
-    [18] = 412, [19] = 413, [20] = 414, [21] = 415, [22] = 422, [23] = 429,
-    [24] = 502, [25] = 504, [26] = 505, [27] = 100, [28] = 101, [29] = 102,
-    [30] = 103, [31] = 205, [32] = 207, [33] = 208, [34] = 226, [35] = 300,
-    [36] = 303, [37] = 305, [38] = 402, [39] = 405, [40] = 406, [41] = 407,
-    [42] = 408, [43] = 411, [44] = 416, [45] = 417,
+    [0] = 200,
+    [1] = 404,
+    [2] = 500,
+    [3] = 302,
+    [4] = 400,
+    [5] = 403,
+    [6] = 401,
+    [7] = 301,
+    [8] = 304,
+    [9] = 503,
+    [10] = 201,
+    [11] = 202,
+    [12] = 204,
+    [13] = 206,
+    [14] = 307,
+    [15] = 308,
+    [16] = 409,
+    [17] = 410,
+    [18] = 412,
+    [19] = 413,
+    [20] = 414,
+    [21] = 415,
+    [22] = 422,
+    [23] = 429,
+    [24] = 502,
+    [25] = 504,
+    [26] = 505,
+    [27] = 100,
+    [28] = 101,
+    [29] = 102,
+    [30] = 103,
+    [31] = 205,
+    [32] = 207,
+    [33] = 208,
+    [34] = 226,
+    [35] = 300,
+    [36] = 303,
+    [37] = 305,
+    [38] = 402,
+    [39] = 405,
+    [40] = 406,
+    [41] = 407,
+    [42] = 408,
+    [43] = 411,
+    [44] = 416,
+    [45] = 417,
 }
 
 -- Read varint
@@ -265,8 +308,11 @@ function qotp_proto.dissector(buffer, pinfo, tree)
     local version = bit.band(header_byte, 0x1F)
 
     local msg_type_names = {
-        [0] = "InitSnd", [1] = "InitRcv", [2] = "InitCryptoSnd",
-        [3] = "InitCryptoRcv", [4] = "Data"
+        [0] = "InitSnd",
+        [1] = "InitRcv",
+        [2] = "InitCryptoSnd",
+        [3] = "InitCryptoRcv",
+        [4] = "Data"
     }
 
     local msg_type_str = msg_type_names[msg_type] or "Unknown"

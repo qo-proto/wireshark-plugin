@@ -1,5 +1,5 @@
 // qotp_decrypt - Lua bridge to qotp_crypto library for Wireshark
-// Cross-platform: Windows DLL and Linux SO
+// Cross-platform: Windows DLL, Linux SO, and macOS dylib
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,7 +20,11 @@
     #define LOAD_LIB(name) dlopen(name, RTLD_LAZY)
     #define GET_FUNC(lib, name) dlsym(lib, name)
     #define CLOSE_LIB(lib) dlclose(lib)
-    #define LIB_NAME "./libqotp_crypto.so"
+    #ifdef __APPLE__
+        #define LIB_NAME "./libqotp_crypto.dylib"
+    #else
+        #define LIB_NAME "./libqotp_crypto.so"
+    #endif
     #define SHOW_ERROR(msg) fprintf(stderr, "%s: %s\n", msg, dlerror())
 #endif
 

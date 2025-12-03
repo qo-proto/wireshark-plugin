@@ -27,6 +27,7 @@ The QH protocol mappings (HTTP methods and status codes) are automatically gener
 ### Build Steps
 
 1. Initialize Visual Studio environment:
+
    ```powershell
    vcvars64.bat
    ```
@@ -37,6 +38,7 @@ The QH protocol mappings (HTTP methods and status codes) are automatically gener
    ```
 
 The build script automatically:
+
 - Generates Lua mappings from Go types
 - Builds the Go crypto DLL
 - Compiles the C Lua wrapper
@@ -52,24 +54,50 @@ go run generate_mappings.go qotp_dissector.lua
 $env:CGO_ENABLED = "1"
 go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
 
-# 3. Build C Lua module  
+# 3. Build C Lua module
 cmd /c "vcvars64.bat && cl /LD /O2 /TP qotp_decrypt.c /I""path\to\lua\include"" /link ""path\to\lua54.lib"" qotp_crypto.lib User32.lib /OUT:qotp_decrypt.dll"
 ```
 
 ## Deployment
 
+TODO: single install script for all plattforms
+
+### Windows
+
 1. Copy DLLs to Wireshark directory:
+
    ```
    qotp_decrypt.dll → C:\Program Files\Wireshark\
    qotp_crypto.dll  → C:\Program Files\Wireshark\
    ```
 
 2. Copy Lua plugin to plugins directory:
+
    ```
    qotp_dissector.lua → C:\Users\<user>\AppData\Roaming\Wireshark\plugins\4.6\
    ```
 
 3. Restart Wireshark
+
+### macOS (intel)
+
+1. Copy all files to Wireshark plugins directory:
+
+   ```bash
+   cp qotp_dissector.lua ~/.config/wireshark/plugins/
+   cp libqotp_crypto.dylib ~/.config/wireshark/plugins/
+   cp qotp_decrypt_macos.so ~/.config/wireshark/plugins/qotp_decrypt.so
+   ```
+
+2. Restart Wireshark
+
+### Linux
+
+1. Copy all files to Wireshark plugins directory:
+
+Run `build-install.sh`
+
+2. Restart Wireshark
 
 ## Usage
 
@@ -84,6 +112,7 @@ cmd /c "vcvars64.bat && cl /LD /O2 /TP qotp_decrypt.c /I""path\to\lua\include"" 
 ### Decryption with Keylog File
 
 1. Create a keylog file (see `keylog.example` for format):
+
    ```
    # Format: CONNECTION_ID SHARED_SECRET_HEX
    0x1234567890abcdef 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -109,6 +138,7 @@ The DLL **MUST** dynamically link to `lua54.dll` to avoid the "multiple Lua VMs 
 ### Wireshark Lua Version
 
 Check your Wireshark installation for the correct Lua version:
+
 - Look for `lua52.dll`, `lua53.dll`, or `lua54.dll` in `C:\Program Files\Wireshark\`
 - Adjust the build to link against the matching version
 
