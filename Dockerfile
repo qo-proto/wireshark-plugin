@@ -8,11 +8,29 @@ RUN apt-get update && apt-get install -y \
     unzip \
     mingw-w64 \
     libreadline-dev \
+    clang \
+    cmake \
+    libxml2-dev \
+    libssl-dev \
+    zlib1g-dev \
+    git \
+    patch \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build
+# -----------------------------
+# OSXCross setup for macOS (do this early)
+# -----------------------------
+RUN git clone https://github.com/tpoechtrager/osxcross /osxcross && \
+    cd /osxcross && \
+    wget -nc https://github.com/joseluisq/macosx-sdks/releases/download/14.5/MacOSX14.5.sdk.tar.xz && \
+    mv MacOSX14.5.sdk.tar.xz tarballs/ && \
+    UNATTENDED=yes OSX_VERSION_MIN=10.15 ./build.sh
 
-# Copy project files
+ENV PATH="/osxcross/target/bin:$PATH"
+ENV CC=o64-clang
+ENV CXX=o64-clang++
+    
+WORKDIR /build
 COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
 COPY mapping/ ./mapping/
 
@@ -20,7 +38,6 @@ COPY mapping/ ./mapping/
 WORKDIR /build/mapping
 RUN go mod tidy
 RUN go run ./generate_mappings.go ../qotp_dissector.lua
-
 WORKDIR /build
 
 # -----------------------------
@@ -66,19 +83,6 @@ RUN go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go && \
         -static-libgcc \
         -static-libstdc++
         
- # -----------------------------
- # OSXCross setup for macOS
- # -----------------------------
- RUN git clone https://github.com/tpoechtrager/osxcross /osxcross && \
-     cd /osxcross && \
-     wget -nc https://github.com/joseluisq/macosx-sdks/releases/download/14.5/MacOSX14.5.sdk.tar.xz && \
-     mv MacOSX14.5.sdk.tar.xz tarballs/ && \
-     UNATTENDED=yes OSX_VERSION_MIN=10.15 ./build.sh
- 
- ENV PATH="/osxcross/target/bin:$PATH"
- ENV CC=o64-clang
- ENV CXX=o64-clang++
-        
 # Build Lua for macOS (static)
 RUN cd /lua-src/lua-5.3.6/src && \
     make clean && \
@@ -94,8 +98,6 @@ RUN CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
         /lua/macos/liblua.a \
         -undefined dynamic_lookup
 
-# Output volume
-VOLUME ["/output"]
 
-# Copy all artifacts to output folder
+VOLUME ["/output"]
 CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so qotp_crypto.dll qotp_decrypt.dll qotp_dissector.lua /output/"]
