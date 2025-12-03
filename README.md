@@ -58,9 +58,7 @@ go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
 cmd /c "vcvars64.bat && cl /LD /O2 /TP qotp_decrypt.c /I""path\to\lua\include"" /link ""path\to\lua54.lib"" qotp_crypto.lib User32.lib /OUT:qotp_decrypt.dll"
 ```
 
-## Deployment
-
-TODO: single install script for all plattforms
+## Installation
 
 ### Windows
 
