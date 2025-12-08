@@ -100,6 +100,162 @@ local shared_secrets = {}
 local shared_secrets_id = {}  -- For QOTP_SHARED_SECRET_ID keys
 local keylog_last_size = -1
 
+-- Simple helpers to decode tiny JSON payloads (no external JSON lib available in Wireshark Lua)
+local function parse_methods_json(json_str)
+    if not json_str or #json_str == 0 then return nil end
+    local methods = {}
+    for m in string.gmatch(json_str, '"([^"]+)"') do
+        methods[#methods + 1] = m
+    end
+    if #methods == 0 then return nil end
+    local map = {}
+    for i, v in ipairs(methods) do
+        map[i - 1] = v  -- zero-based method codes
+    end
+    return map
+end
+
+local function parse_status_json(json_str)
+    if not json_str or #json_str == 0 then return nil end
+    local map = {}
+    for k, v in string.gmatch(json_str, '"(%d+)"%s*:%s*(%d+)') do
+        map[tonumber(k)] = tonumber(v)
+    end
+    if next(map) == nil then return nil end
+    return map
+end
+
+local function parse_headers_json(json_str)
+    if not json_str or #json_str == 0 then 
+        print("DEBUG parse_headers_json: json_str is empty or nil")
+        return nil 
+    end
+    local map = {}
+    
+    print(string.format("DEBUG parse_headers_json: Starting parse of %d bytes", #json_str))
+    
+    -- Simple parser for JSON: {"1":{"Name":"X","Value":"Y"},...}
+    local i = 1
+    local entry_count = 0
+    while i < #json_str do
+        -- Find next key: "NUMBER":
+        local key_start, key_end, key_str = json_str:find('"(%d+)":', i)
+        if not key_start then 
+            print(string.format("DEBUG parse_headers_json: No more keys found at position %d", i))
+            break 
+        end
+        
+        local key = tonumber(key_str)
+        if not key then 
+            i = key_end + 1
+            break 
+        end
+        
+        -- Find the opening { of the value object
+        local obj_start = json_str:find('{', key_end)
+        if not obj_start then break end
+        
+        -- Find the matching closing }
+        local depth = 1
+        local obj_end = obj_start + 1
+        while obj_end <= #json_str and depth > 0 do
+            local c = json_str:sub(obj_end, obj_end)
+            if c == '{' then depth = depth + 1
+            elseif c == '}' then depth = depth - 1
+            end
+            obj_end = obj_end + 1
+        end
+        
+        if depth == 0 then
+            local obj_content = json_str:sub(obj_start, obj_end)
+            local name_val = ""
+            local value_val = ""
+            
+            -- Find Name value (capitalized for JSON)
+            -- Pattern: "Name":"<value>"
+            local name_pattern = '"Name"%s*:%s*"([^"]*)"'
+            name_val = obj_content:match(name_pattern) or ""
+            
+            -- Find Value value (capitalized for JSON)
+            -- Pattern: "Value":"<value>"
+            local value_pattern = '"Value"%s*:%s*"([^"]*)"'
+            value_val = obj_content:match(value_pattern) or ""
+            
+            map[key] = { name = name_val, value = value_val }
+            entry_count = entry_count + 1
+            i = obj_end
+        else
+            break
+        end
+    end
+    
+    print(string.format("DEBUG parse_headers_json: Parsed %d entries", entry_count))
+    if next(map) == nil then 
+        print("DEBUG parse_headers_json: map is empty, returning nil")
+        return nil 
+    end
+    return map
+end
+
+local function load_qh_tables_from_go()
+    local methods_map
+    local status_map
+    local req_headers_map
+    local resp_headers_map
+
+    local ok_methods, methods_json = pcall(function()
+        if qotp_decrypt.get_qh_methods then
+            return qotp_decrypt.get_qh_methods()
+        end
+    end)
+    if ok_methods and methods_json then
+        methods_map = parse_methods_json(methods_json)
+    end
+
+    local ok_status, status_json = pcall(function()
+        if qotp_decrypt.get_qh_status_map then
+            return qotp_decrypt.get_qh_status_map()
+        end
+    end)
+    if ok_status and status_json then
+        status_map = parse_status_json(status_json)
+    end
+
+    local ok_req_headers, req_headers_json = pcall(function()
+        if qotp_decrypt.get_qh_request_headers then
+            return qotp_decrypt.get_qh_request_headers()
+        end
+    end)
+    if ok_req_headers and req_headers_json then
+        print(string.format("DEBUG: Request headers JSON length: %d", #req_headers_json))
+        print(string.format("DEBUG: First 200 chars: %s", req_headers_json:sub(1, 200)))
+        req_headers_map = parse_headers_json(req_headers_json)
+        if req_headers_map then
+            local count = 0
+            for k, v in pairs(req_headers_map) do
+                count = count + 1
+                if k <= 0x05 then  -- Only print first few
+                    print(string.format("DEBUG: Header 0x%02x (%d) = {name=%s, value=%s}", k, k, tostring(v.name), tostring(v.value)))
+                end
+            end
+            print(string.format("DEBUG: Total parsed request headers: %d", count))
+        else
+            print("DEBUG: parse_headers_json returned nil")
+        end
+    end
+
+    local ok_resp_headers, resp_headers_json = pcall(function()
+        if qotp_decrypt.get_qh_response_headers then
+            return qotp_decrypt.get_qh_response_headers()
+        end
+    end)
+    if ok_resp_headers and resp_headers_json then
+        resp_headers_map = parse_headers_json(resp_headers_json)
+    end
+
+    return methods_map, status_map, req_headers_map, resp_headers_map
+end
+
 local function buffer_to_hex_string(buffer, offset, length)
     local hex = ""
     for i = offset + length - 1, offset, -1 do  -- Read in reverse (little-endian to big-endian)
@@ -216,66 +372,15 @@ local function check_and_reload_keylog(filepath)
     end
 end
 
--- BEGIN AUTO-GENERATED MAPPINGS
-local qh_methods = {
-    [0] = "GET",
-    [1] = "POST",
-    [2] = "PUT",
-    [3] = "PATCH",
-    [4] = "DELETE",
-    [5] = "HEAD",
-    [6] = "OPTIONS",
-}
-
-local compact_to_status = {
-    [43] = 411,
-    [19] = 413,
-    [31] = 205,
-    [33] = 208,
-    [14] = 307,
-    [15] = 308,
-    [18] = 412,
-    [21] = 415,
-    [44] = 416,
-    [23] = 429,
-    [30] = 103,
-    [0] = 200,
-    [13] = 206,
-    [7] = 301,
-    [3] = 302,
-    [4] = 400,
-    [42] = 408,
-    [9] = 503,
-    [29] = 102,
-    [36] = 303,
-    [8] = 304,
-    [40] = 406,
-    [45] = 417,
-    [22] = 422,
-    [27] = 100,
-    [28] = 101,
-    [37] = 305,
-    [20] = 414,
-    [10] = 201,
-    [35] = 300,
-    [2] = 500,
-    [11] = 202,
-    [32] = 207,
-    [6] = 401,
-    [34] = 226,
-    [5] = 403,
-    [1] = 404,
-    [24] = 502,
-    [25] = 504,
-    [26] = 505,
-    [12] = 204,
-    [38] = 402,
-    [39] = 405,
-    [41] = 407,
-    [16] = 409,
-    [17] = 410,
-}
--- END AUTO-GENERATED MAPPINGS
+-- Attempt to load live tables from Go/qh; no baked-in fallbacks
+local loaded_qh_methods, loaded_compact_to_status, loaded_req_headers, loaded_resp_headers = load_qh_tables_from_go()
+if not loaded_qh_methods or not loaded_compact_to_status then
+    print("ERROR: failed to load QH tables from Go; QH decoding will be limited")
+end
+local qh_methods = loaded_qh_methods or {}
+local compact_to_status = loaded_compact_to_status or {}
+local qh_request_headers = loaded_req_headers or {}
+local qh_response_headers = loaded_resp_headers or {}
 
 -- Helper function to read varint from decrypted data
 local function read_varint(data, offset)
@@ -296,6 +401,73 @@ local function read_varint(data, offset)
     end
     
     return nil, 0  -- Failed to read varint
+end
+
+-- Function to parse and display QH headers using the header lookup tables
+local function parse_qh_headers(header_data, headers_tree, is_request)
+    if not header_data or #header_data == 0 then
+        return
+    end
+    
+    local headers_table = is_request and qh_request_headers or qh_response_headers
+    local offset = 1
+    
+    while offset <= #header_data do
+        -- Read header ID (variable length encoded)
+        local header_id, varint_bytes = read_varint(header_data, offset)
+        if not header_id or varint_bytes == 0 then
+            break
+        end
+        offset = offset + varint_bytes
+        
+        -- Ensure header_id is a number
+        header_id = tonumber(header_id) or header_id
+        if not header_id then break end
+        
+        -- Look up header name and value in static table
+        local header_entry = headers_table[header_id]
+        if header_entry then
+            local header_name = header_entry.name
+            local header_value = header_entry.value
+            
+            -- Check if we got valid data from the entry
+            if header_name and #header_name > 0 then
+                -- Format 2 (0x41+): name-only headers with a trailing value
+                if header_id >= 0x41 and offset <= #header_data then
+                    -- Read the value byte/string that follows
+                    local value_len, varint_bytes = read_varint(header_data, offset)
+                    if value_len and varint_bytes > 0 then
+                        offset = offset + varint_bytes
+                        local actual_value = ""
+                        if value_len > 0 and offset + value_len <= #header_data then
+                            actual_value = header_data:sub(offset, offset + value_len - 1)
+                            offset = offset + value_len
+                        end
+                        -- Display as name: value
+                        headers_tree:add(f_qh_header, string.format("%s: %s [ID: 0x%02x]", header_name, actual_value, tonumber(header_id))):set_generated()
+                    else
+                        -- No value found, just display name
+                        headers_tree:add(f_qh_header, string.format("%s [ID: 0x%02x]", header_name, tonumber(header_id))):set_generated()
+                    end
+                else
+                    -- Format 1 (0x01-0x40): name-value pairs from static table
+                    if header_value and #header_value > 0 then
+                        headers_tree:add(f_qh_header, string.format("%s: %s [ID: 0x%02x]", header_name, header_value, tonumber(header_id))):set_generated()
+                    else
+                        -- Name-only entry (shouldn't happen in Format 1 but handle it)
+                        headers_tree:add(f_qh_header, string.format("%s [ID: 0x%02x]", header_name, tonumber(header_id))):set_generated()
+                    end
+                end
+            else
+                -- Entry exists but has no name - shouldn't happen
+                print(string.format("DEBUG: Header ID %d (0x%02x) entry has no name", tonumber(header_id), tonumber(header_id)))
+                headers_tree:add(f_qh_header, string.format("[Header ID: 0x%02x] (no name)", tonumber(header_id))):set_generated()
+            end
+        else
+            print(string.format("DEBUG: Header ID %d (0x%02x) not found in table. Table empty: %s", tonumber(header_id), tonumber(header_id), next(headers_table) == nil and "yes" or "no"))
+            headers_tree:add(f_qh_header, string.format("[Unknown Header ID: 0x%02x]", tonumber(header_id))):set_generated()
+        end
+    end
 end
 
 -- Function to parse QH protocol from decrypted data string
@@ -366,8 +538,8 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
             offset = offset + varint_bytes
             if offset + header_len <= #decrypted_data then
                 local header = decrypted_data:sub(offset, offset + header_len -1)
-                qh_tree:add(f_qh_header_length, header_len):set_generated()
-                qh_tree:add(f_qh_header, header):set_generated()
+                local header_tree = qh_tree:add(f_qh_header_length, header_len):set_generated()
+                parse_qh_headers(header, header_tree, true)  -- true = is_request
                 offset = offset + header_len
             end
         end
@@ -412,8 +584,8 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
             offset = offset + varint_bytes
             if offset + header_len <= #decrypted_data then
                 local header = decrypted_data:sub(offset, offset + header_len - 1)
-                qh_tree:add(f_qh_header_length, header_len):set_generated()
-                qh_tree:add(f_qh_header, header):set_generated()
+                local header_tree = qh_tree:add(f_qh_header_length, header_len):set_generated()
+                parse_qh_headers(header, header_tree, false)  -- false = is_response
                 offset = offset + header_len
             end
         end

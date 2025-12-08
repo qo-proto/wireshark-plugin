@@ -6,9 +6,11 @@ package main
 import "C"
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"unsafe"
 
+	"github.com/qo-proto/qh"
 	"github.com/qo-proto/qotp"
 )
 
@@ -154,4 +156,55 @@ func DecryptDataPacket(
 
 func main() {
 	// Required for buildmode=c-shared
+}
+
+//export GetQhMethodsJSON
+func GetQhMethodsJSON() *C.char {
+	methods := []string{
+		qh.GET.String(),
+		qh.POST.String(),
+		qh.PUT.String(),
+		qh.PATCH.String(),
+		qh.DELETE.String(),
+		qh.HEAD.String(),
+		qh.OPTIONS.String(),
+	}
+
+	data, err := json.Marshal(methods)
+	if err != nil {
+		return nil
+	}
+
+	return C.CString(string(data))
+}
+
+//export GetQhStatusMapJSON
+func GetQhStatusMapJSON() *C.char {
+	data, err := json.Marshal(qh.CompactToStatus)
+	if err != nil {
+		return nil
+	}
+
+	return C.CString(string(data))
+}
+
+//export GetQhRequestHeadersJSON
+func GetQhRequestHeadersJSON() *C.char {
+	data, err := json.Marshal(qh.RequestHeaderStaticTable)
+	if err != nil {
+		return nil
+	}
+
+	return C.CString(string(data))
+}
+
+//export GetQhResponseHeadersJSON
+func GetQhResponseHeadersJSON() *C.char {
+	data, err := json.Marshal(qh.
+		ResponseHeaderStaticTable)
+	if err != nil {
+		return nil
+	}
+
+	return C.CString(string(data))
 }

@@ -4,20 +4,8 @@
 Write-Host "Building QOTP Wireshark Decryption Plugin..." -ForegroundColor Green
 Write-Host ""
 
-# Step 1: Generate Lua mappings from Go source
-Write-Host "Step 1: Generating Lua mappings from Go types..." -ForegroundColor Cyan
-go run generate_mappings.go qotp_dissector.lua
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Failed to generate mappings!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "Mappings updated in qotp_dissector.lua" -ForegroundColor Green
-Write-Host ""
-
-# Step 2: Build Go shared library
-Write-Host "Step 2: Building Go shared library (qotp_crypto.dll)..." -ForegroundColor Cyan
+# Step 1: Build Go shared library
+Write-Host "Step 1: Building Go shared library (qotp_crypto.dll)..." -ForegroundColor Cyan
 $env:CGO_ENABLED = "1"
 go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
 
@@ -29,8 +17,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "qotp_crypto.dll created" -ForegroundColor Green
 Write-Host ""
 
-# Step 3: Build C wrapper as Lua module
-Write-Host "Step 3: Building C Lua module (qotp_decrypt.dll)..." -ForegroundColor Cyan
+# Step 2: Build C wrapper as Lua module
+Write-Host "Step 2: Building C Lua module (qotp_decrypt.dll)..." -ForegroundColor Cyan
 $luaInclude = "C:\Users\gian\sa\wireshark\wireshark-libs\lua-5.4.6-unicode-win64-vc14\include"
 $luaLib = "C:\Users\gian\sa\wireshark\wireshark-libs\lua-5.4.6-unicode-win64-vc14\lua54.lib"
 $currentDir = (Get-Location).Path
@@ -55,7 +43,6 @@ Write-Host "Build complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Generated files:" -ForegroundColor Cyan
-Write-Host "  - qotp_dissector.lua (with auto-generated mappings)"
 Write-Host "  - qotp_crypto.dll"
 Write-Host "  - qotp_decrypt.dll"
 Write-Host ""

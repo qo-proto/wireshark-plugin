@@ -32,11 +32,16 @@ typedef void* LibHandle;
 typedef int (*SetKeyFunc)(unsigned long long, const char*);
 typedef int (*DecryptFunc)(const char*, int, unsigned long long, int, unsigned long long, char*, int);
 typedef char* (*GetVersionFunc)();
+typedef char* (*GetQhTableFunc)();
 
 static LibHandle dll = NULL;
 static SetKeyFunc set_key = NULL;
 static DecryptFunc decrypt = NULL;
 static GetVersionFunc get_version = NULL;
+static GetQhTableFunc get_qh_methods = NULL;
+static GetQhTableFunc get_qh_status_map = NULL;
+static GetQhTableFunc get_qh_request_headers = NULL;
+static GetQhTableFunc get_qh_response_headers = NULL;
 
 static int load_dll() {
     if (dll) return 1;
@@ -93,6 +98,11 @@ static int load_dll() {
     set_key = (SetKeyFunc)GET_PROC_ADDRESS(dll, "SetSharedSecretHex");
     decrypt = (DecryptFunc)GET_PROC_ADDRESS(dll, "DecryptDataPacket");
     get_version = (GetVersionFunc)GET_PROC_ADDRESS(dll, "GetVersion");
+
+    get_qh_methods = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhMethodsJSON");
+    get_qh_status_map = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhStatusMapJSON");
+    get_qh_request_headers = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhRequestHeadersJSON");
+    get_qh_response_headers = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhResponseHeadersJSON");
     
     if (!set_key || !decrypt) {
         SHOW_ERROR("Failed to load functions");
@@ -201,6 +211,90 @@ static int lua_get_version(lua_State* L) {
     return 1;
 }
 
+static int lua_get_qh_methods(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (!get_qh_methods) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char* data = get_qh_methods();
+    if (!data) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushstring(L, data);
+    return 1;
+}
+
+static int lua_get_qh_request_headers(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (!get_qh_request_headers) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char* data = get_qh_request_headers();
+    if (!data) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushstring(L, data);
+    return 1;
+}
+
+static int lua_get_qh_response_headers(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (!get_qh_response_headers) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char* data = get_qh_response_headers();
+    if (!data) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushstring(L, data);
+    return 1;
+}
+
+static int lua_get_qh_status_map(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (!get_qh_status_map) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char* data = get_qh_status_map();
+    if (!data) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_pushstring(L, data);
+    return 1;
+}
+
 static int lua_test(lua_State* L) {
     load_dll();
     return 0;
@@ -211,6 +305,10 @@ static const luaL_Reg funcs[] = {
     {"set_key", lua_set_key},
     {"set_key_id", lua_set_key_id},
     {"get_version", lua_get_version},
+    {"get_qh_methods", lua_get_qh_methods},
+    {"get_qh_status_map", lua_get_qh_status_map},
+    {"get_qh_request_headers", lua_get_qh_request_headers},
+    {"get_qh_response_headers", lua_get_qh_response_headers},
     {"test", lua_test},
     {NULL, NULL}
 };
