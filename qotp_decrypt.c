@@ -167,6 +167,33 @@ static int lua_set_key(lua_State* L) {
     return 1;
 }
 
+static int lua_set_key_id(lua_State* L) {
+    if (!load_dll()) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    unsigned long long conn_id;
+    if (!parse_conn_id(L, 1, &conn_id)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const char* secret = luaL_checkstring(L, 2);
+    
+    // Dynamically load SetSharedSecretIdHex function from Go DLL
+    static SetKeyFunc set_key_id_func = NULL;
+    if (!set_key_id_func) {
+        set_key_id_func = (SetKeyFunc)GET_PROC_ADDRESS(dll, "SetSharedSecretIdHex");
+        if (!set_key_id_func) {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    }
+    
+    int result = set_key_id_func(conn_id, secret);
+    lua_pushboolean(L, result == 0);
+    return 1;
+}
+
 
 static int lua_get_version(lua_State* L) {
     load_dll();
@@ -182,6 +209,7 @@ static int lua_test(lua_State* L) {
 static const luaL_Reg funcs[] = {
     {"decrypt_data", lua_decrypt_data},
     {"set_key", lua_set_key},
+    {"set_key_id", lua_set_key_id},
     {"get_version", lua_get_version},
     {"test", lua_test},
     {NULL, NULL}
