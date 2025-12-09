@@ -35,7 +35,17 @@ The QH protocol mappings (HTTP methods and status codes) are automatically gener
 3. Copy Lua and so's to Wiresharks Plugin directory
 4. Restart Wireshark
 
+### Deployment macOS (intel)
 
+1. Copy all files to Wireshark plugins directory:
+
+   ```bash
+   cp qotp_dissector.lua ~/.config/wireshark/plugins/
+   cp libqotp_crypto.dylib ~/.config/wireshark/plugins/
+   cp qotp_decrypt_macos.so ~/.config/wireshark/plugins/qotp_decrypt.so
+   ```
+
+2. Restart Wireshark
 
 ## Usage
 

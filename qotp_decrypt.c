@@ -24,6 +24,13 @@ typedef HMODULE LibHandle;
 #define LOAD_LIBRARY(name) dlopen(name, RTLD_LAZY)
 #define GET_PROC_ADDRESS(handle, name) dlsym(handle, name)
 #define SHOW_ERROR(msg) fprintf(stderr, "%s\n", msg)
+
+#ifdef __APPLE__ // macOS
+        #define LIB_NAME "./libqotp_crypto.dylib"
+    #else
+        #define LIB_NAME "./libqotp_crypto.so"
+    #endif
+    #define SHOW_ERROR(msg) fprintf(stderr, "%s: %s\n", msg, dlerror())
 typedef void* LibHandle;
 #endif
 

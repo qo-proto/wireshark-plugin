@@ -114,7 +114,7 @@ jobs:
           $version = $env:GITHUB_REF -replace 'refs/tags/', ''
           Compress-Archive -Path qotp_dissector.lua, qotp_crypto.dll, qotp_decrypt.dll -DestinationPath "qotp-wireshark-plugin-windows-$version.zip"
 
-  build-linux:
+  build-linux-macos:
     runs-on: ubuntu-latest
 
     steps:
@@ -141,53 +141,51 @@ jobs:
         run: |
           sed -i 's|\.\./qh|./qh|g; s|\.\./qotp|./qotp|g' go.mod
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25.1"
-
-      - name: Setup dependencies
+      - name: Build with Docker
         run: |
-          go get ./qh/...
-          go get ./qotp/...
-          go mod tidy
-          go mod download
+          mkdir -p build-output
+          docker build \
+            -f Dockerfile \
+            -t qotp-plugin-builder:latest \
+            .
+          
+          docker run --rm \
+            -v $(pwd)/build-output:/output \
+            qotp-plugin-builder:latest
 
-      - name: Install dependencies
+      - name: Organize Linux artifacts
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential liblua5.4-dev lua5.4
+          mkdir -p linux
+          cp build-output/libqotp_crypto.so build-output/qotp_decrypt.so build-output/qotp_dissector.lua linux/ 2>/dev/null || true
 
-      - name: Build Go shared library
+      - name: Organize macOS artifacts
         run: |
-          echo "Building qotp_crypto.so..."
-          CGO_ENABLED=1 go build -buildmode=c-shared -o qotp_crypto.so qotp_export.go
+          mkdir -p macos
+          cp build-output/libqotp_crypto.dylib build-output/qotp_decrypt_macos.so build-output/qotp_dissector.lua macos/ 2>/dev/null || true
 
-      - name: Build C Lua module
-        run: |
-          echo "Building qotp_decrypt.so..."
-          gcc -shared -fPIC -O2 qotp_decrypt.c -o qotp_decrypt.so -I/usr/include/lua5.4 -llua5.4 -ldl
-          echo "Checking qotp_decrypt.so dependencies..."
-          ldd qotp_decrypt.so
-
-      - name: Upload artifacts
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v5
         with:
           name: qotp-wireshark-plugin-linux
-          path: |
-            qotp_dissector.lua
-            qotp_crypto.so
-            qotp_decrypt.so
+          path: linux/
+          retention-days: 90
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: qotp-wireshark-plugin-macos
+          path: macos/
           retention-days: 90
 
       - name: Create release artifacts
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           version=${GITHUB_REF#refs/tags/}
-          tar -czf "qotp-wireshark-plugin-linux-$version.tar.gz" qotp_dissector.lua qotp_crypto.so qotp_decrypt.so
+          cd linux && tar -czf "../qotp-wireshark-plugin-linux-$version.tar.gz" * && cd ..
+          cd macos && tar -czf "../qotp-wireshark-plugin-macos-$version.tar.gz" * && cd ..
 
   create-release:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -204,11 +202,18 @@ jobs:
           name: qotp-wireshark-plugin-linux
           path: linux
 
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: qotp-wireshark-plugin-macos
+          path: macos
+
       - name: Create release archives
         run: |
           version=${GITHUB_REF#refs/tags/}
           cd windows && zip -r "../qotp-wireshark-plugin-windows-$version.zip" * && cd ..
           cd linux && tar -czf "../qotp-wireshark-plugin-linux-$version.tar.gz" * && cd ..
+          cd macos && tar -czf "../qotp-wireshark-plugin-macos-$version.tar.gz" * && cd ..
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -216,5 +221,6 @@ jobs:
           files: |
             qotp-wireshark-plugin-windows-*.zip
             qotp-wireshark-plugin-linux-*.tar.gz
+            qotp-wireshark-plugin-macos-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
