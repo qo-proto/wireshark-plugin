@@ -40,15 +40,16 @@ typedef int (*SetKeyFunc)(unsigned long long, const char*);
 typedef int (*DecryptFunc)(const char*, int, unsigned long long, int, unsigned long long, char*, int);
 typedef char* (*GetVersionFunc)();
 typedef char* (*GetQhTableFunc)();
+typedef int (*GetStatusFromCompactFunc)(unsigned char);
 
 static LibHandle dll = NULL;
 static SetKeyFunc set_key = NULL;
 static DecryptFunc decrypt = NULL;
 static GetVersionFunc get_version = NULL;
 static GetQhTableFunc get_qh_methods = NULL;
-static GetQhTableFunc get_qh_status_map = NULL;
 static GetQhTableFunc get_qh_request_headers = NULL;
 static GetQhTableFunc get_qh_response_headers = NULL;
+static GetStatusFromCompactFunc get_qh_status_from_compact = NULL;
 
 static int load_dll() {
     if (dll) return 1;
@@ -107,9 +108,9 @@ static int load_dll() {
     get_version = (GetVersionFunc)GET_PROC_ADDRESS(dll, "GetVersion");
 
     get_qh_methods = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhMethodsJSON");
-    get_qh_status_map = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhStatusMapJSON");
     get_qh_request_headers = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhRequestHeadersJSON");
     get_qh_response_headers = (GetQhTableFunc)GET_PROC_ADDRESS(dll, "GetQhResponseHeadersJSON");
+    get_qh_status_from_compact = (GetStatusFromCompactFunc)GET_PROC_ADDRESS(dll, "GetQhStatusFromCompact");
     
     if (!set_key || !decrypt) {
         SHOW_ERROR("Failed to load functions");
@@ -281,24 +282,20 @@ static int lua_get_qh_response_headers(lua_State* L) {
     return 1;
 }
 
-static int lua_get_qh_status_map(lua_State* L) {
+static int lua_get_qh_status_from_compact(lua_State* L) {
     if (!load_dll()) {
         lua_pushnil(L);
         return 1;
     }
 
-    if (!get_qh_status_map) {
+    if (!get_qh_status_from_compact) {
         lua_pushnil(L);
         return 1;
     }
 
-    const char* data = get_qh_status_map();
-    if (!data) {
-        lua_pushnil(L);
-        return 1;
-    }
-
-    lua_pushstring(L, data);
+    int compact = luaL_checkinteger(L, 1);
+    int http_status = get_qh_status_from_compact((unsigned char)compact);
+    lua_pushinteger(L, http_status);
     return 1;
 }
 
@@ -313,7 +310,7 @@ static const luaL_Reg funcs[] = {
     {"set_key_id", lua_set_key_id},
     {"get_version", lua_get_version},
     {"get_qh_methods", lua_get_qh_methods},
-    {"get_qh_status_map", lua_get_qh_status_map},
+    {"get_qh_status_from_compact", lua_get_qh_status_from_compact},
     {"get_qh_request_headers", lua_get_qh_request_headers},
     {"get_qh_response_headers", lua_get_qh_response_headers},
     {"test", lua_test},

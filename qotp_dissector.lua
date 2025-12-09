@@ -115,16 +115,6 @@ local function parse_methods_json(json_str)
     return map
 end
 
-local function parse_status_json(json_str)
-    if not json_str or #json_str == 0 then return nil end
-    local map = {}
-    for k, v in string.gmatch(json_str, '"(%d+)"%s*:%s*(%d+)') do
-        map[tonumber(k)] = tonumber(v)
-    end
-    if next(map) == nil then return nil end
-    return map
-end
-
 local function parse_headers_json(json_str)
     if not json_str or #json_str == 0 then 
         print("DEBUG parse_headers_json: json_str is empty or nil")
@@ -199,7 +189,6 @@ end
 
 local function load_qh_tables_from_go()
     local methods_map
-    local status_map
     local req_headers_map
     local resp_headers_map
 
@@ -210,15 +199,6 @@ local function load_qh_tables_from_go()
     end)
     if ok_methods and methods_json then
         methods_map = parse_methods_json(methods_json)
-    end
-
-    local ok_status, status_json = pcall(function()
-        if qotp_decrypt.get_qh_status_map then
-            return qotp_decrypt.get_qh_status_map()
-        end
-    end)
-    if ok_status and status_json then
-        status_map = parse_status_json(status_json)
     end
 
     local ok_req_headers, req_headers_json = pcall(function()
@@ -253,7 +233,7 @@ local function load_qh_tables_from_go()
         resp_headers_map = parse_headers_json(resp_headers_json)
     end
 
-    return methods_map, status_map, req_headers_map, resp_headers_map
+    return methods_map, req_headers_map, resp_headers_map
 end
 
 local function buffer_to_hex_string(buffer, offset, length)
@@ -372,15 +352,23 @@ local function check_and_reload_keylog(filepath)
     end
 end
 
--- Attempt to load live tables from Go/qh; no baked-in fallbacks
-local loaded_qh_methods, loaded_compact_to_status, loaded_req_headers, loaded_resp_headers = load_qh_tables_from_go()
-if not loaded_qh_methods or not loaded_compact_to_status then
-    print("ERROR: failed to load QH tables from Go; QH decoding will be limited")
+local loaded_qh_methods, loaded_req_headers, loaded_resp_headers = load_qh_tables_from_go()
+if not loaded_qh_methods then
+    print("ERROR: failed to load QH method table from Go; QH decoding will be limited")
 end
 local qh_methods = loaded_qh_methods or {}
-local compact_to_status = loaded_compact_to_status or {}
 local qh_request_headers = loaded_req_headers or {}
 local qh_response_headers = loaded_resp_headers or {}
+
+local function decode_status(compact_status)
+    if qotp_decrypt and qotp_decrypt.get_qh_status_from_compact then
+        local ok, http_status = pcall(qotp_decrypt.get_qh_status_from_compact, compact_status)
+        if ok and http_status then
+            return http_status
+        end
+    end
+    return 500
+end
 
 -- Helper function to read varint from decrypted data
 local function read_varint(data, offset)
@@ -573,7 +561,7 @@ local function parse_qh_protocol(decrypted_data, tree, pinfo)
         -- Parse Response
         qh_tree:add(f_qh_type, "Response"):set_generated()
         local compact_status = bit.band(first_byte, 0x3F)  -- Lower 6 bits
-        local http_status = compact_to_status[compact_status] or 500
+        local http_status = decode_status(compact_status)
         
         qh_tree:add(f_qh_status, http_status):set_generated()
         pinfo.cols.info:append(string.format(" [Status: %d]", http_status))

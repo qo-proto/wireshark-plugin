@@ -178,14 +178,9 @@ func GetQhMethodsJSON() *C.char {
 	return C.CString(string(data))
 }
 
-//export GetQhStatusMapJSON
-func GetQhStatusMapJSON() *C.char {
-	data, err := json.Marshal(qh.CompactToStatus)
-	if err != nil {
-		return nil
-	}
-
-	return C.CString(string(data))
+//export GetQhStatusFromCompact
+func GetQhStatusFromCompact(compact C.uchar) C.int {
+	return C.int(qh.DecodeStatusCode(uint8(compact)))
 }
 
 //export GetQhRequestHeadersJSON
