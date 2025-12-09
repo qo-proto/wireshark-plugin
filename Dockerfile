@@ -34,12 +34,6 @@ WORKDIR /build
 COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
 COPY mapping/ ./mapping/
 
-# Generate mappings
-WORKDIR /build/mapping
-RUN go mod tidy
-RUN go run ./generate_mappings.go ../qotp_dissector.lua
-WORKDIR /build
-
 # -----------------------------
 # Download Lua 5.4.6 once
 # -----------------------------
