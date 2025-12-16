@@ -47,6 +47,7 @@ jobs:
       - name: Add pcap.go to qotp
         run: |
           Copy-Item -Path qotp_pcap_wrapper.go -Destination qotp\pcap.go
+          Remove-Item -Path qotp_pcap_wrapper.go
 
       - name: Update module paths for CI
         run: |
@@ -160,6 +161,7 @@ jobs:
       - name: Add pcap.go to qotp
         run: |
           cp qotp_pcap_wrapper.go qotp/pcap.go
+          rm qotp_pcap_wrapper.go
 
       - name: Update module paths for CI
         run: |
