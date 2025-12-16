@@ -39,7 +39,7 @@ RUN QOTP_VERSION=$(grep 'github.com/qo-proto/qotp' go.mod | grep -oP 'v[\d.]+' |
     QH_VERSION=$(grep 'github.com/qo-proto/qh' go.mod | grep -oP 'v[\d.]+' | head -1) && \
     git clone --depth 1 --branch $QOTP_VERSION https://github.com/qo-proto/qotp.git ./qotp && \
     git clone --depth 1 --branch $QH_VERSION https://github.com/qo-proto/qh.git ./qh && \
-    cp qotp_pcap_wrapper.go ./qotp/pcap.go && \
+    cp qotp_pcap_wrapper.go ./qotp/pcap_wrapper.go && \
     rm qotp_pcap_wrapper.go && \
     sed -i 's|\.\./qh|/build/qh|g; s|\.\./qotp|/build/qotp|g' go.mod
 
