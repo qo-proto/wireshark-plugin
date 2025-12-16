@@ -19,18 +19,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Get latest qotp tag
-        id: qotp-tag
+      - name: Get qotp and qh versions from go.mod
+        id: versions
         run: |
-          $tag = git ls-remote --tags https://github.com/qo-proto/qotp.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
-      - name: Get latest qh tag
-        id: qh-tag
-        run: |
-          $tag = git ls-remote --tags https://github.com/qo-proto/qh.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          $gomod = Get-Content go.mod -Raw
+          $qotpVersion = [regex]::Match($gomod, 'github\.com/qo-proto/qotp\s+v([\d.]+)').Groups[1].Value
+          $qhVersion = [regex]::Match($gomod, 'github\.com/qo-proto/qh\s+v([\d.]+)').Groups[1].Value
+          echo "qotp=$qotpVersion" >> $env:GITHUB_OUTPUT
+          echo "qh=$qhVersion" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
       - name: Checkout qotp dependency
@@ -138,31 +134,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Get latest qotp tag
-        id: qotp-tag
+      - name: Get qotp and qh versions from go.mod
+        id: versions
         run: |
-          tag=$(git ls-remote --tags https://github.com/qo-proto/qotp.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1)
-          echo "tag=$tag" >> $GITHUB_OUTPUT
-
-      - name: Get latest qh tag
-        id: qh-tag
-        run: |
-          tag=$(git ls-remote --tags https://github.com/qo-proto/qh.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1)
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+          qotpVersion=$(grep 'github.com/qo-proto/qotp' go.mod | sed 's/.*v\([0-9.]*\).*/\1/')
+          qhVersion=$(grep 'github.com/qo-proto/qh' go.mod | sed 's/.*v\([0-9.]*\).*/\1/')
+          echo "qotp=$qotpVersion" >> $GITHUB_OUTPUT
+          echo "qh=$qhVersion" >> $GITHUB_OUTPUT
 
       - name: Checkout qotp dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qotp
           path: qotp
-          ref: v${{ steps.qotp-tag.outputs.tag }}
+          ref: v${{ steps.versions.outputs.qotp }}
 
       - name: Checkout qh dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qh
           path: qh
-          ref: v${{ steps.qh-tag.outputs.tag }}
+          ref: v${{ steps.versions.outputs.qh }}
 
       - name: Add pcap.go to qotp
         run: |
