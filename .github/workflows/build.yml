@@ -18,17 +18,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Get latest qotp tag
+        id: qotp-tag
+        run: |
+          $tag = git ls-remote --tags https://github.com/qo-proto/qotp.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Get latest qh tag
+        id: qh-tag
+        run: |
+          $tag = git ls-remote --tags https://github.com/qo-proto/qh.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
       - name: Checkout qotp dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qotp
           path: qotp
+          ref: v${{ steps.qotp-tag.outputs.tag }}
 
       - name: Checkout qh dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qh
           path: qh
+          ref: v${{ steps.qh-tag.outputs.tag }}
 
       - name: Add pcap.go to qotp
         run: |
@@ -121,17 +138,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Get latest qotp tag
+        id: qotp-tag
+        run: |
+          tag=$(git ls-remote --tags https://github.com/qo-proto/qotp.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1)
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+      - name: Get latest qh tag
+        id: qh-tag
+        run: |
+          tag=$(git ls-remote --tags https://github.com/qo-proto/qh.git | grep -oP 'refs/tags/v\K[^{^]*' | sort -V | tail -1)
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
       - name: Checkout qotp dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qotp
           path: qotp
+          ref: v${{ steps.qotp-tag.outputs.tag }}
 
       - name: Checkout qh dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qh
           path: qh
+          ref: v${{ steps.qh-tag.outputs.tag }}
 
       - name: Add pcap.go to qotp
         run: |
