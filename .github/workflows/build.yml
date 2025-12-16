@@ -22,9 +22,10 @@ jobs:
       - name: Get qotp and qh versions from go.mod
         id: versions
         run: |
-          $gomod = Get-Content go.mod -Raw
-          $qotpVersion = [regex]::Match($gomod, 'github\.com/qo-proto/qotp\s+v([\d.]+)').Groups[1].Value
-          $qhVersion = [regex]::Match($gomod, 'github\.com/qo-proto/qh\s+v([\d.]+)').Groups[1].Value
+          $qotpLine = (Select-String 'github.com/qo-proto/qotp' go.mod | Select-Object -First 1).Line
+          $qhLine = (Select-String 'github.com/qo-proto/qh' go.mod | Select-Object -First 1).Line
+          if ($qotpLine -match '(v[\d.]+)') { $qotpVersion = $matches[1] }
+          if ($qhLine -match '(v[\d.]+)') { $qhVersion = $matches[1] }
           echo "qotp=$qotpVersion" >> $env:GITHUB_OUTPUT
           echo "qh=$qhVersion" >> $env:GITHUB_OUTPUT
         shell: pwsh
@@ -34,14 +35,14 @@ jobs:
         with:
           repository: qo-proto/qotp
           path: qotp
-          ref: v${{ steps.qotp-tag.outputs.tag }}
+          ref: v${{ steps.versions.outputs.qotp }}
 
       - name: Checkout qh dependency
         uses: actions/checkout@v6
         with:
           repository: qo-proto/qh
           path: qh
-          ref: v${{ steps.qh-tag.outputs.tag }}
+          ref: v${{ steps.versions.outputs.qh }}
 
       - name: Add pcap.go to qotp
         run: |
@@ -137,8 +138,8 @@ jobs:
       - name: Get qotp and qh versions from go.mod
         id: versions
         run: |
-          qotpVersion=$(grep 'github.com/qo-proto/qotp' go.mod | sed 's/.*v\([0-9.]*\).*/\1/')
-          qhVersion=$(grep 'github.com/qo-proto/qh' go.mod | sed 's/.*v\([0-9.]*\).*/\1/')
+          qotpVersion=$(grep 'github.com/qo-proto/qotp' go.mod | grep -oP 'v[\d.]+')
+          qhVersion=$(grep 'github.com/qo-proto/qh' go.mod | grep -oP 'v[\d.]+')
           echo "qotp=$qotpVersion" >> $GITHUB_OUTPUT
           echo "qh=$qhVersion" >> $GITHUB_OUTPUT
 
