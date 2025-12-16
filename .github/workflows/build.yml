@@ -94,7 +94,7 @@ jobs:
         run: |
           Write-Host "Building qotp_crypto.dll..."
           $env:CGO_ENABLED = "1"
-          go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go
+          go build -buildmode=c-shared -o qotp_crypto.dll .
 
       - name: Build C Lua module
         shell: pwsh

@@ -32,6 +32,15 @@ ENV PATH="/osxcross/target/bin:$PATH"
 
 WORKDIR /build
 COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
+COPY qotp_pcap_wrapper.go ./
+
+# Checkout qotp and qh dependencies
+RUN QOTP_VERSION=$(grep 'github.com/qo-proto/qotp' go.mod | grep -oP 'v[\d.]+' | head -1) && \
+    QH_VERSION=$(grep 'github.com/qo-proto/qh' go.mod | grep -oP 'v[\d.]+' | head -1) && \
+    git clone --depth 1 --branch $QOTP_VERSION https://github.com/qo-proto/qotp.git ./qotp && \
+    git clone --depth 1 --branch $QH_VERSION https://github.com/qo-proto/qh.git ./qh && \
+    cp qotp_pcap_wrapper.go ./qotp/pcap.go && \
+    sed -i 's|\.\./qh|/build/qh|g; s|\.\./qotp|/build/qotp|g' go.mod
 
 # -----------------------------
 # Download Lua 5.4.6 once
@@ -51,7 +60,7 @@ RUN cd /lua-src/lua-5.4.6 && \
 # -----------------------------
 # Linux build (.so) with static Lua
 # -----------------------------
-RUN go build -buildmode=c-shared -o libqotp_crypto.so qotp_export.go && \
+RUN go build -buildmode=c-shared -o libqotp_crypto.so . && \
     g++ -shared -fPIC -o qotp_decrypt.so qotp_decrypt.c \
     -I/lua/linux \
     /lua/linux/liblua.a \
@@ -69,7 +78,7 @@ RUN cd /lua-src/lua-5.4.6/src && \
 # -----------------------------
 # Windows cross-build (.dll) with static Lua
 # -----------------------------
-RUN go build -buildmode=c-shared -o qotp_crypto.dll qotp_export.go && \
+RUN go build -buildmode=c-shared -o qotp_crypto.dll . && \
     x86_64-w64-mingw32-g++ -shared -o qotp_decrypt.dll qotp_decrypt.c \
     -I/lua/windows \
     /lua/windows/liblua.a \
@@ -82,7 +91,7 @@ RUN mkdir -p /lua/macos && \
 
 # macOS build (.so for Lua, .dylib for Go shared lib)
 RUN CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
-    go build -buildmode=c-shared -o libqotp_crypto.dylib qotp_export.go && \
+    go build -buildmode=c-shared -o libqotp_crypto.dylib . && \
     o64-clang++ -shared -o qotp_decrypt_macos.so qotp_decrypt.c \
     -I/lua/macos \
     -undefined dynamic_lookup
