@@ -32,7 +32,6 @@ ENV PATH="/osxcross/target/bin:$PATH"
 
 WORKDIR /build
 COPY qotp_export.go qotp_decrypt.c qotp_dissector.lua go.mod go.sum ./
-COPY mapping/ ./mapping/
 
 # -----------------------------
 # Download Lua 5.4.6 once
