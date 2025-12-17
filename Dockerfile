@@ -109,4 +109,4 @@ VOLUME ["/output"]
 # Linux: libqotp_crypto.so, qotp_decrypt.so
 # Windows: qotp_crypto.dll, qotp_decrypt.dll
 # macOS: libqotp_crypto.dylib, qotp_decrypt_macos.so (rename to qotp_decrypt.so when installing)
-CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so qotp_crypto.dll qotp_decrypt.dll libqotp_crypto.dylib qotp_decrypt_macos.so qotp_dissector.lua /output/"]
+CMD ["sh", "-c", "cp libqotp_crypto.so qotp_decrypt.so libqotp_crypto.dylib qotp_decrypt_macos.so qotp_dissector.lua /output/"]
