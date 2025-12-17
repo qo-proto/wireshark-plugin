@@ -44,55 +44,61 @@ RUN QOTP_VERSION=$(grep 'github.com/qo-proto/qotp' go.mod | grep -oP 'v[\d.]+' |
     sed -i 's|\.\./qh|/build/qh|g; s|\.\./qotp|/build/qotp|g' go.mod
 
 # -----------------------------
-# Download Lua 5.4.6 once
-# -----------------------------
+# ===========================
+# Download prebuilt Lua from Wireshark repositories
+# ===========================
+
+# Download Wireshark Lua for Windows
+RUN mkdir -p /lua/windows && \
+    wget -O /tmp/lua-windows.zip "https://gitlab.com/wireshark/wireshark-development-libraries/-/raw/main/public/windows/packages/lua/lua-5.4.6-unicode-win64-vc14.zip" && \
+    unzip /tmp/lua-windows.zip -d /tmp/lua-windows && \
+    cp /tmp/lua-windows/lua-5.4.6-unicode-win64-vc14/include/*.h /lua/windows/ && \
+    cp /tmp/lua-windows/lua-5.4.6-unicode-win64-vc14/lua54.dll /lua/windows/ && \
+    cp /tmp/lua-windows/lua-5.4.6-unicode-win64-vc14/lua54.lib /lua/windows/
+
+# Download and build Lua for Linux (generic prebuilt approach or compile)
 RUN mkdir -p /lua-src && cd /lua-src && \
     wget https://www.lua.org/ftp/lua-5.4.6.tar.gz && \
-    tar xzf lua-5.4.6.tar.gz
-
-# -----------------------------
-# Build Lua for Linux (static)
-# -----------------------------
-RUN cd /lua-src/lua-5.4.6 && \
+    tar xzf lua-5.4.6.tar.gz && \
+    cd lua-5.4.6 && \
     make linux CC=gcc CFLAGS="-O2 -fPIC" && \
     mkdir -p /lua/linux && \
     cp src/*.h src/liblua.a /lua/linux/
 
-# -----------------------------
-# Linux build (.so) with static Lua
-# -----------------------------
-RUN go build -buildmode=c-shared -o libqotp_crypto.so . && \
+# Copy Lua 5.4.6 headers for macOS
+RUN mkdir -p /lua/macos && \
+    cp /lua-src/lua-5.4.6/src/*.h /lua/macos/
+
+# ===========================
+# Linux build (.so)
+# ===========================
+RUN mv qotp_decrypt.c /tmp/qotp_decrypt.c && \
+    go build -buildmode=c-shared -o libqotp_crypto.so . && \
+    mv /tmp/qotp_decrypt.c qotp_decrypt.c && \
     g++ -shared -fPIC -o qotp_decrypt.so qotp_decrypt.c \
     -I/lua/linux \
     /lua/linux/liblua.a \
     -ldl
 
-# -----------------------------
-# Build Lua for Windows (MinGW static)
-# -----------------------------
-RUN cd /lua-src/lua-5.4.6/src && \
-    make clean && \
-    make mingw CC=x86_64-w64-mingw32-gcc && \
-    mkdir -p /lua/windows && \
-    cp lua54.dll liblua.a *.h /lua/windows/
+# ===========================
+# Windows cross-build (.dll)
+# ===========================
+#RUN mv qotp_decrypt.c /tmp/qotp_decrypt.c && \
+#    CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
+#    go build -buildmode=c-shared -o qotp_crypto.dll . && \
+#    mv /tmp/qotp_decrypt.c qotp_decrypt.c && \
+#    x86_64-w64-mingw32-g++ -shared -o qotp_decrypt.dll qotp_decrypt.c \
+#    -I/lua/windows \
+#    /lua/windows/lua54.dll \
+#    -Wl,--enable-stdcall-fixup
 
-# -----------------------------
-# Windows cross-build (.dll) with static Lua
-# -----------------------------
-RUN go build -buildmode=c-shared -o qotp_crypto.dll . && \
-    x86_64-w64-mingw32-g++ -shared -o qotp_decrypt.dll qotp_decrypt.c \
-    -I/lua/windows \
-    /lua/windows/liblua.a \
-    -static-libgcc \
-    -static-libstdc++
-
-# Copy Lua 5.4.6 headers for macOS (don't build library - use Wireshark's embedded Lua)
-RUN mkdir -p /lua/macos && \
-    cp /lua-src/lua-5.4.6/src/*.h /lua/macos/
-
-# macOS build (.so for Lua, .dylib for Go shared lib)
-RUN CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+# ===========================
+# macOS build (.dylib)
+# ===========================
+RUN mv qotp_decrypt.c /tmp/qotp_decrypt.c && \
+    CC=o64-clang CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
     go build -buildmode=c-shared -o libqotp_crypto.dylib . && \
+    mv /tmp/qotp_decrypt.c qotp_decrypt.c && \
     o64-clang++ -shared -o qotp_decrypt_macos.so qotp_decrypt.c \
     -I/lua/macos \
     -undefined dynamic_lookup

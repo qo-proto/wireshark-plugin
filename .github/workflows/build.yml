@@ -136,47 +136,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Get qotp and qh versions from go.mod
-        id: versions
-        run: |
-          qotpVersion=$(grep 'github.com/qo-proto/qotp' go.mod | grep -oP 'v[\d.]+')
-          qhVersion=$(grep 'github.com/qo-proto/qh' go.mod | grep -oP 'v[\d.]+')
-          echo "qotp=$qotpVersion" >> $GITHUB_OUTPUT
-          echo "qh=$qhVersion" >> $GITHUB_OUTPUT
-
-      - name: Checkout qotp dependency
-        uses: actions/checkout@v6
-        with:
-          repository: qo-proto/qotp
-          path: qotp
-          ref: ${{ steps.versions.outputs.qotp }}
-
-      - name: Checkout qh dependency
-        uses: actions/checkout@v6
-        with:
-          repository: qo-proto/qh
-          path: qh
-          ref: ${{ steps.versions.outputs.qh }}
-
-      - name: Add pcap.go to qotp
-        run: |
-          cp qotp_pcap_wrapper.go qotp/pcap_wrapper.go
-
-      - name: Update module paths for CI
-        run: |
-          sed -i 's|\.\./qh|./qh|g; s|\.\./qotp|./qotp|g' go.mod
-
       - name: Build with Docker
         run: |
           mkdir -p build-output
-          docker build \
-            -f Dockerfile \
-            -t qotp-plugin-builder:latest \
-            .
-          
-          docker run --rm \
-            -v $(pwd)/build-output:/output \
-            qotp-plugin-builder:latest
+          docker build -t qotp-plugin-builder:latest .
+          docker run --rm -v $(pwd)/build-output:/output qotp-plugin-builder:latest
 
       - name: Organize Linux artifacts
         run: |
